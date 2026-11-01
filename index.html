@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="24点">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f6f1e7">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<title>24点小游戏</title>
+<style>
+  :root{
+    --bg:#f6f1e7; --ink:#2b2622; --muted:#8a8178; --card:#fffdf8;
+    --accent:#d9472b; --ok:#2f8f5b; --line:#e3dacb; --op:#2b2622;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  button{touch-action:manipulation;-webkit-user-select:none;user-select:none}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif;
+    min-height:100vh;display:flex;justify-content:center}
+  .wrap{width:100%;max-width:520px;padding:calc(20px + env(safe-area-inset-top)) calc(18px + env(safe-area-inset-right)) calc(32px + env(safe-area-inset-bottom)) calc(18px + env(safe-area-inset-left))}
+  header{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px}
+  h1{font-size:26px;margin:0;letter-spacing:1px}
+  h1 b{color:var(--accent)}
+  .stats{display:flex;gap:10px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:6px 12px;text-align:center;min-width:64px}
+  .stat small{display:block;font-size:11px;color:var(--muted)}
+  .stat span{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
+  .timer{margin:6px 0 18px}
+  .stars{color:var(--accent);letter-spacing:1px;font-weight:400}
+  .total{font-size:15px;color:var(--muted);margin:4px 0 0}
+  .total b{font-size:34px;color:var(--ink);font-variant-numeric:tabular-nums}
+  .summary{display:flex;justify-content:center;gap:34px;margin:8px 0 4px}
+  .timer-row{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);margin-bottom:6px}
+  .timer-row strong{font-size:18px;color:var(--ink);font-variant-numeric:tabular-nums}
+  .timer-row strong.warn{color:var(--accent)}
+  .bar{height:8px;background:var(--line);border-radius:99px;overflow:hidden}
+  .bar i{display:block;height:100%;background:var(--ink);width:100%;transition:width .25s linear}
+  .bar i.warn{background:var(--accent)}
+  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+  .num{aspect-ratio:3/4;border-radius:14px;border:2px solid var(--ink);background:var(--card);
+    font-size:44px;font-weight:800;cursor:pointer;color:var(--ink);position:relative;
+    box-shadow:0 4px 0 var(--ink);transition:transform .08s, box-shadow .08s, opacity .15s}
+  .num:active{transform:translateY(3px);box-shadow:0 1px 0 var(--ink)}
+  .num.used{opacity:.25;cursor:default;transform:translateY(3px);box-shadow:0 1px 0 var(--ink)}
+  .num::before,.num::after{content:attr(data-v);position:absolute;font-size:13px;font-weight:700}
+  .num::before{top:6px;left:9px}.num::after{bottom:6px;right:9px;transform:rotate(180deg)}
+  .expr{min-height:64px;background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:12px 14px;font-size:28px;font-weight:600;letter-spacing:2px;display:flex;align-items:center;
+    flex-wrap:wrap;word-break:break-all;margin-bottom:6px}
+  .expr .ph{color:var(--muted);font-size:15px;font-weight:400;letter-spacing:0}
+  .hint{min-height:20px;font-size:13px;color:var(--accent);margin-bottom:10px}
+  .ops{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:10px}
+  .ops button,.acts button{border:1px solid var(--line);background:var(--card);border-radius:10px;
+    font-size:24px;padding:12px 0;cursor:pointer;color:var(--ink);font-family:inherit}
+  .ops button:active,.acts button:active{background:var(--line)}
+  .acts{display:grid;grid-template-columns:1fr 1fr 1fr 2fr;gap:8px}
+  .acts button{font-size:15px;padding:14px 0}
+  .acts .submit{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700;font-size:17px}
+  .acts .submit:active{background:#b83a21}
+  .foot{margin-top:18px;display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}
+  .foot button{background:none;border:none;color:var(--muted);text-decoration:underline;cursor:pointer;font-size:12px;font-family:inherit}
+  /* overlays */
+  .overlay{position:fixed;inset:0;background:rgba(43,38,34,.55);display:none;align-items:center;justify-content:center;padding:20px;z-index:10}
+  .overlay.show{display:flex}
+  .panel{background:var(--card);border-radius:18px;padding:26px 24px;max-width:400px;width:100%;text-align:center}
+  .panel h2{margin:0 0 10px;font-size:24px}
+  .panel p{margin:8px 0;color:#5a524b;line-height:1.6;font-size:15px}
+  .panel .big{font-size:56px;margin:4px 0}
+  .panel .sol{font-size:22px;font-weight:700;color:var(--ink);letter-spacing:1px;margin:10px 0}
+  .panel ul{text-align:left;padding-left:20px;color:#5a524b;line-height:1.8;font-size:14px;margin:10px 0 18px}
+  .panel button{background:var(--accent);color:#fff;border:none;border-radius:12px;padding:13px 30px;font-size:16px;font-weight:700;cursor:pointer;font-family:inherit}
+  .ok{color:var(--ok)} .bad{color:var(--accent)}
+  .history{max-height:180px;overflow:auto;text-align:left;font-size:13px;margin:12px 0 18px;border-top:1px solid var(--line)}
+  .history div{display:flex;justify-content:space-between;padding:6px 2px;border-bottom:1px solid var(--line)}
+  @media (hover:none) and (pointer:coarse){.foot{display:none}}
+  @media (max-width:380px){.num{font-size:36px}.ops button{font-size:20px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1><b>24</b> 点</h1>
+    <div class="stats">
+      <div class="stat"><small>关卡</small><span id="level">1/10</span></div>
+      <div class="stat"><small>得分</small><span id="score">0</span></div>
+    </div>
+  </header>
+
+  <div class="timer">
+    <div class="timer-row"><span>难度 <b id="stars" class="stars"></b></span><strong id="time">5:00</strong></div>
+    <div class="bar"><i id="bar"></i></div>
+  </div>
+
+  <div class="cards" id="cards"></div>
+
+  <div class="expr" id="expr"></div>
+  <div class="hint" id="hint"></div>
+
+  <div class="ops">
+    <button data-op="+">+</button>
+    <button data-op="-">−</button>
+    <button data-op="*">×</button>
+    <button data-op="/">÷</button>
+    <button data-op="(">(</button>
+    <button data-op=")">)</button>
+  </div>
+  <div class="acts">
+    <button id="back">退格</button>
+    <button id="clear">清空</button>
+    <button id="skip">放弃</button>
+    <button id="submit" class="submit">提交</button>
+  </div>
+
+  <div class="foot">
+    <span>键盘也可操作：数字、+ - * / ( )、回车提交，Esc 清空</span>
+  </div>
+</div>
+
+<div class="overlay show" id="startOv">
+  <div class="panel">
+    <h2>24 点</h2>
+    <ul>
+      <li>每关给出 4 个 1–9 的数字，每个数字必须且只能用一次</li>
+      <li>用 + − × ÷ 和括号算出 24</li>
+      <li>共 10 关，难度逐关升高，每关限时 5 分钟</li>
+      <li>答对得 1 分；答错或超时不得分，直接进入下一关</li>
+      <li>十关结束后显示总得分和总耗时</li>
+    </ul>
+    <button id="startBtn">开始游戏</button>
+  </div>
+</div>
+
+<div class="overlay" id="resOv">
+  <div class="panel">
+    <div class="big" id="resIcon"></div>
+    <h2 id="resTitle"></h2>
+    <p id="resMsg"></p>
+    <div class="sol" id="resSol"></div>
+    <button id="nextBtn">下一关</button>
+  </div>
+</div>
+
+<div class="overlay" id="endOv">
+  <div class="panel">
+    <h2>全部完成！</h2>
+    <div class="summary">
+      <div class="total">得分<br><b id="endScore"></b></div>
+      <div class="total">总耗时<br><b id="endTime"></b></div>
+    </div>
+    <p id="endMsg"></p>
+    <div class="history" id="hist"></div>
+    <button id="againBtn">再玩一次</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const LIMIT = 300; // 每关限时（秒）
+  const TOTAL = 10;  // 总关数
+  // 所有有解的四数组合，按难度从易到难排序（预先计算：最简单解法用到的运算越难——除法、负数、分数——难度越高；简单解法越多越容易）
+  const RANKED = '4677,6666,5577,1138,1146,2246,4666,5667,3888,3338,4446,4479,4488,4578,3448,2589,1789,2679,3579,3588,3669,3678,4668,1599,1689,1699,1779,1788,1888,2499,2688,2778,3399,3489,3777,4569,5559,5568,2228,2238,1226,2448,2224,2268,3356,3369,4444,1234,1244,2444,3336,1266,1334,1366,4688,2346,1799,1889,2245,2666,2899,3457,3999,3558,2223,3668,1148,1447,3346,3778,3899,4556,4699,1137,1248,2336,1136,1239,1335,2339,2399,2568,3349,3446,3666,1139,1145,1236,2488,1288,1337,1344,1349,1444,1445,2247,2248,2278,2333,2369,3455,2466,4448,1128,2456,2467,2468,2567,3466,1339,1488,2266,3477,1235,1345,2233,2249,2344,2366,2559,3445,1155,2668,4555,5888,2356,4458,1238,1257,1333,2357,3334,2337,2338,3458,1166,1237,1256,1279,1336,1358,1359,1448,2377,2446,1147,1258,6668,1588,2236,3359,1126,1249,1259,2479,1156,1367,1478,2458,3569,1267,1566,2288,3337,3345,3367,3499,3667,3699,3788,5556,5567,1144,1157,1225,1229,1247,1269,1348,2229,2237,2255,2256,2345,2347,4888,2355,1347,1368,1449,1455,1556,2239,2359,2388,2447,3348,3479,4468,4478,4559,4566,4577,4579,4667,4788,1278,1356,2358,1468,2469,2888,3578,1224,1233,1289,1388,2244,2289,2348,3344,3447,3566,3679,3799,3889,4456,4489,4669,6679,6799,1127,1135,1268,2234,2267,2335,2557,2577,3378,2378,3389,3567,4678,5578,5789,3333,3379,1118,1227,1246,1369,1569,1669,1688,2225,2259,2277,2349,2368,2445,2457,2459,2669,2788,2889,3335,3347,3444,3557,4447,4449,4455,4457,4689,4889,5566,5589,5688,5788,6669,6888,3468,3688,1245,1457,1489,1567,1578,1589,3469,3589,3677,3689,4567,4789,5678,5689,6689,3449,1188,3599,5889,1129,1134,1228,1255,1338,1357,1446,1466,1477,1559,2257,2379,2566,2579,2678,3459,3568,4589,5779,5555,1389,1158,1378,1458,1467,1469,1568,2489,2699,3456,3556,3789,4568,4778,1666,2227,2588,2667,2689,1169,2455,2367,2389,2478,3368,6889,6688,1459,1679,2258,4469,5668,5699,7889,6899,1149,1377,2269,5669,4445,2477,2789,3478,5679,1479,1579,2235,2449,3357,1168,3366,4588,1379,1399,3339,4777,5666,2578,2558,2569,4599,4679,3355,5588,5599,6789,3559,3779,4557,4558,4799,4899,5677,1277,3377,1555,4477,3388,1456,1668,1346'.split(',');
+  // ---------- 分数运算（精确） ----------
+  const gcd = (a,b) => { a=Math.abs(a); b=Math.abs(b); while(b){[a,b]=[b,a%b]} return a||1; };
+  const F = (n,d=1) => { if(d<0){n=-n;d=-d} const g=gcd(n,d); return {n:n/g,d:d/g}; };
+  const add=(a,b)=>F(a.n*b.d+b.n*a.d,a.d*b.d);
+  const sub=(a,b)=>F(a.n*b.d-b.n*a.d,a.d*b.d);
+  const mul=(a,b)=>F(a.n*b.n,a.d*b.d);
+  const div=(a,b)=>{ if(b.n===0) throw new Error('除数不能为 0'); return F(a.n*b.d,a.d*b.n); };
+  const fstr=f=>f.d===1?String(f.n):`${f.n}/${f.d}`;
+  const is24=f=>f.n===24&&f.d===1;
+
+  // ---------- 求解器 ----------
+  function solve(nums){
+    const items = nums.map(v=>({f:F(v),e:String(v),p:3}));
+    function rec(list){
+      if(list.length===1) return is24(list[0].f) ? list[0].e : null;
+      for(let i=0;i<list.length;i++) for(let j=0;j<list.length;j++){
+        if(i===j) continue;
+        const a=list[i], b=list[j];
+        const rest=list.filter((_,k)=>k!==i&&k!==j);
+        const cands=[];
+        if(i<j){
+          cands.push({f:add(a.f,b.f),e:`${a.e} + ${b.e}`,p:1});
+          cands.push({f:mul(a.f,b.f),e:`${wrap(a,2)} × ${wrap(b,2)}`,p:2});
+        }
+        cands.push({f:sub(a.f,b.f),e:`${a.e} − ${wrap(b,2)}`,p:1});
+        if(b.f.n!==0) cands.push({f:div(a.f,b.f),e:`${wrap(a,2)} ÷ ${wrap(b,3)}`,p:2});
+        for(const c of cands){ const r=rec([...rest,c]); if(r) return r; }
+      }
+      return null;
+    }
+    const wrap=(x,need)=>x.p<need?`(${x.e})`:x.e;
+    return rec(items);
+  }
+
+  // ---------- 状态 ----------
+  let level=1, score=0, nums=[], solution='', tokens=[], left=LIMIT, timerId=null, history=[], locked=true, startAt=0, totalMs=0;
+  const fmt=ms=>{ const s=Math.round(ms/1000); return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; };
+  const $=id=>document.getElementById(id);
+
+  function newPuzzle(){
+    // 把排序后的题库均分为 10 档，第 k 关从第 k 档随机抽题
+    const lo=Math.floor((level-1)*RANKED.length/TOTAL), hi=Math.floor(level*RANKED.length/TOTAL);
+    const n=RANKED[lo+Math.floor(Math.random()*(hi-lo))].split('').map(Number);
+    for(let i=3;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [n[i],n[j]]=[n[j],n[i]]; }
+    nums=n; solution=solve(n); tokens=[];
+    $('level').textContent=`${level}/${TOTAL}`; $('score').textContent=score;
+    const st=Math.ceil(level/2); $('stars').textContent='★'.repeat(st)+'☆'.repeat(5-st);
+    renderCards(); renderExpr(); hint('');
+    left=LIMIT; renderTime(); locked=false; startAt=Date.now();
+    clearInterval(timerId);
+    timerId=setInterval(()=>{ left--; renderTime(); if(left<=0) finish('timeout'); },1000);
+  }
+
+  function renderCards(){
+    const used=new Set(tokens.filter(t=>t.t==='n').map(t=>t.i));
+    $('cards').innerHTML=nums.map((v,i)=>
+      `<button class="num${used.has(i)?' used':''}" data-i="${i}" data-v="${v}">${v}</button>`).join('');
+  }
+  const sym={'+':'+','-':'−','*':'×','/':'÷','(':'(',')':')'};
+  function renderExpr(){
+    $('expr').innerHTML = tokens.length
+      ? tokens.map(t=>t.t==='n'?nums[t.i]:sym[t.v]).join(' ')
+      : '<span class="ph">点击数字和运算符组成算式</span>';
+  }
+  function renderTime(){
+    const m=Math.floor(left/60), s=left%60;
+    const warn=left<=30;
+    $('time').textContent=`${m}:${String(s).padStart(2,'0')}`;
+    $('time').classList.toggle('warn',warn);
+    $('bar').style.width=(left/LIMIT*100)+'%';
+    $('bar').classList.toggle('warn',warn);
+  }
+  function hint(m){ $('hint').textContent=m; }
+
+  function pushNum(i){
+    if(locked) return;
+    if(tokens.some(t=>t.t==='n'&&t.i===i)) return;
+    const last=tokens[tokens.length-1];
+    if(last && (last.t==='n' || last.v===')')){ hint('数字前面需要运算符'); return; }
+    tokens.push({t:'n',i}); hint(''); renderCards(); renderExpr();
+  }
+  function pushOp(v){
+    if(locked) return;
+    tokens.push({t:'o',v}); hint(''); renderExpr();
+  }
+  function back(){ if(locked) return; tokens.pop(); hint(''); renderCards(); renderExpr(); }
+  function clearAll(){ if(locked) return; tokens=[]; hint(''); renderCards(); renderExpr(); }
+
+  // ---------- 解析与计算 ----------
+  function evaluate(){
+    let p=0;
+    const peek=()=>tokens[p];
+    function expr(){ let v=term();
+      while(peek()&&peek().t==='o'&&(peek().v==='+'||peek().v==='-')){ const o=tokens[p++].v; const r=term(); v=o==='+'?add(v,r):sub(v,r); }
+      return v; }
+    function term(){ let v=factor();
+      while(peek()&&peek().t==='o'&&(peek().v==='*'||peek().v==='/')){ const o=tokens[p++].v; const r=factor(); v=o==='*'?mul(v,r):div(v,r); }
+      return v; }
+    function factor(){
+      const t=peek();
+      if(!t) throw new Error('算式不完整');
+      if(t.t==='n'){ p++; return F(nums[t.i]); }
+      if(t.v==='('){ p++; const v=expr(); if(!peek()||peek().v!==')') throw new Error('括号不匹配'); p++; return v; }
+      if(t.v==='-'){ throw new Error('不能使用负号'); }
+      throw new Error('算式格式有误');
+    }
+    const v=expr();
+    if(p<tokens.length) throw new Error(tokens[p].v===')'?'括号不匹配':'算式格式有误');
+    return v;
+  }
+
+  function submit(){
+    if(locked) return;
+    const usedCount=new Set(tokens.filter(t=>t.t==='n').map(t=>t.i)).size;
+    if(usedCount<4){ hint('四个数字都要用上，每个只用一次'); return; }
+    let v;
+    try{ v=evaluate(); }catch(e){ hint(e.message); return; }
+    finish(is24(v)?'ok':'wrong', v);
+  }
+
+  function finish(kind, val){
+    if(locked) return;
+    locked=true; clearInterval(timerId);
+    const used=Math.min(LIMIT*1000, Date.now()-startAt); totalMs+=used;
+    const expr=tokens.map(t=>t.t==='n'?nums[t.i]:sym[t.v]).join(' ');
+    if(kind==='ok') score++;
+    history.push({level, nums:nums.join(' '), kind, used});
+    $('score').textContent=score;
+    const icon=$('resIcon'), title=$('resTitle');
+    if(kind==='ok'){
+      icon.textContent='✓'; icon.className='big ok'; title.textContent='答对了！+1 分';
+      $('resMsg').textContent=`${expr} = 24`; $('resSol').textContent='';
+    }else{
+      icon.textContent='✗'; icon.className='big bad';
+      title.textContent = kind==='timeout' ? '时间到' : kind==='skip' ? '已放弃' : '不对哦';
+      $('resMsg').textContent = kind==='wrong' ? `${expr} = ${fstr(val)}，本关不得分。参考答案：` : '本关不得分。参考答案：';
+      $('resSol').textContent=`${solution} = 24`;
+    }
+    $('nextBtn').textContent = level>=TOTAL ? '查看成绩' : '下一关';
+    $('resOv').classList.add('show');
+    $('nextBtn').focus();
+  }
+  function next(){ $('resOv').classList.remove('show'); if(level>=TOTAL){ endGame(); return; } level++; newPuzzle(); }
+
+  function endGame(){
+    locked=true; clearInterval(timerId);
+    $('resOv').classList.remove('show');
+    $('endScore').textContent=`${score}/${TOTAL}`;
+    $('endTime').textContent=fmt(totalMs);
+    $('endMsg').textContent = score===TOTAL ? '满分，太厉害了！' : score>=7 ? '很棒，再接再厉！' : score>=4 ? '不错，后面几关确实有难度。' : '多练几次就熟了，再来一局吧！';
+    const lab={ok:'<span class="ok">答对</span>',wrong:'<span class="bad">答错</span>',timeout:'<span class="bad">超时</span>',skip:'<span class="bad">放弃</span>'};
+    $('hist').innerHTML=history.map(h=>`<div><span>第 ${h.level} 关　${h.nums}</span><span>${fmt(h.used)}　${lab[h.kind]}</span></div>`).join('');
+    $('endOv').classList.add('show');
+  }
+  function restart(){
+    level=1; score=0; history=[]; totalMs=0;
+    $('endOv').classList.remove('show'); $('startOv').classList.remove('show');
+    newPuzzle();
+  }
+
+  // ---------- 事件 ----------
+  $('cards').addEventListener('click',e=>{ const b=e.target.closest('.num'); if(b) pushNum(+b.dataset.i); });
+  document.querySelectorAll('[data-op]').forEach(b=>b.addEventListener('click',()=>pushOp(b.dataset.op)));
+  $('back').onclick=back; $('clear').onclick=clearAll; $('submit').onclick=submit;
+  $('skip').onclick=()=>finish('skip');
+  $('nextBtn').onclick=next; $('startBtn').onclick=restart; $('againBtn').onclick=restart;
+
+  document.addEventListener('keydown',e=>{
+    if($('resOv').classList.contains('show')){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); next(); } return; }
+    if(locked) return;
+    const k=e.key;
+    if(/^[1-9]$/.test(k)){
+      const used=new Set(tokens.filter(t=>t.t==='n').map(t=>t.i));
+      const i=nums.findIndex((v,idx)=>v===+k&&!used.has(idx));
+      if(i>=0) pushNum(i); else hint(`没有可用的 ${k}`);
+    }
+    else if('+-*/()'.includes(k)) pushOp(k);
+    else if(k==='x'||k==='X') pushOp('*');
+    else if(k==='Backspace'){ e.preventDefault(); back(); }
+    else if(k==='Escape') clearAll();
+    else if(k==='Enter'){ e.preventDefault(); submit(); }
+  });
+})();
+</script>
+<script>
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
+</script>
+</body>
+</html>
