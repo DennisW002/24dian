@@ -28,13 +28,39 @@ function connect() {
 function showSections(which) { for(const id of ['entry','lobby','game','waiting','finish']) $(id).classList.toggle('hidden',id!==which); }
 function showInterference(effect) {
   if(interferenceMuted || state?.phase!=='playing' || state.players.find(p=>p.id===state.you)?.done) return;
-  const text={pig:'🐷 小猪路过！',sparkle:'✨ 星星闪闪！',wink:'😜 别分心哦！'}[effect];
-  if(!text) return;
-  const card=document.createElement('div');
-  card.className=`effect effect-${effect}`;
-  card.textContent=text;
-  $('interferenceLayer').append(card);
-  setTimeout(()=>card.remove(),2500);
+  if(!['pig','sparkle','wink'].includes(effect)) return;
+  const scene=document.createElement('div');
+  scene.className=`interferenceScene scene-${effect}`;
+  const count=effect==='sparkle'?32:14;
+  for(let i=0;i<count;i++) {
+    const particle=document.createElement('span');
+    particle.className='particle';
+    particle.style.left=`${4+Math.random()*92}%`;
+    particle.style.top=effect==='sparkle'?'-12%':`${8+Math.random()*82}%`;
+    particle.style.setProperty('--still-top',`${8+Math.random()*82}%`);
+    particle.style.setProperty('--delay',`${Math.random()*0.65}s`);
+    particle.style.setProperty('--duration',`${1.7+Math.random()*0.7}s`);
+    particle.style.setProperty('--size',`${effect==='pig'?38+Math.random()*42:25+Math.random()*35}px`);
+    if(effect==='pig') { const img=document.createElement('img'); img.src='/avatars/1f437.svg'; img.alt=''; particle.append(img); }
+    else particle.textContent=effect==='sparkle'?'⭐':'😜';
+    scene.append(particle);
+  }
+  $('interferenceLayer').append(scene);
+  setTimeout(()=>scene.remove(),3200);
+}
+function invite() { return `${location.origin}/?room=${state.room}`; }
+async function copyInvite() {
+  const link=invite();
+  $('inviteGuideUrl').value=link;
+  try { if(navigator.clipboard?.writeText) { await navigator.clipboard.writeText(link); return true; } } catch {}
+  try { $('inviteGuideUrl').focus(); $('inviteGuideUrl').select(); return document.execCommand('copy'); } catch { return false; }
+}
+async function openInviteGuide() {
+  $('inviteGuideUrl').value=invite();
+  $('inviteGuide').classList.remove('hidden');
+  const copied=await copyInvite();
+  $('inviteGuideStatus').textContent=copied?'邀请链接已复制。请到微信聊天中粘贴发送给朋友。':'请长按上方链接复制，再到微信聊天中粘贴发送。';
+  $('inviteGuideCopy').focus();
 }
 function renderInterferenceControls() {
   if(state?.phase!=='playing') return;
@@ -106,9 +132,10 @@ document.addEventListener('DOMContentLoaded',()=>{
   $('enterBtn').onclick=()=>{ const name=$('name').value.trim(); if(!name) return toast('请输入玩家名字'); send({type:roomFromUrl?'join':'create',room:roomFromUrl,name,avatar:selected}); };
   $('readyBtn').onclick=()=>{ const me=state.players.find(p=>p.id===state.you); send({type:'ready',ready:!me.ready}); };
   $('startBtn').onclick=()=>send({type:'start'});
-  const invite=()=>`${location.origin}/?room=${state.room}`;
-  $('copyBtn').onclick=async()=>{ try{await navigator.clipboard.writeText(invite());toast('邀请链接已复制');}catch{toast('复制失败，请长按链接复制');} };
-  $('shareBtn').onclick=async()=>{ if(navigator.share) { try{await navigator.share({title:'胖猪来24点 · 双人 PK',text:'来和我在线玩胖猪来24点！',url:invite()});}catch{} } else $('copyBtn').onclick(); };
+  $('copyBtn').onclick=async()=>{ const copied=await copyInvite(); if(copied) toast('邀请链接已复制，请在微信中粘贴发送'); else openInviteGuide(); };
+  $('shareBtn').onclick=openInviteGuide;
+  $('inviteGuideCopy').onclick=async()=>{const copied=await copyInvite();$('inviteGuideStatus').textContent=copied?'邀请链接已复制。请到微信聊天中粘贴发送给朋友。':'请长按上方链接复制，再到微信聊天中粘贴发送。';};
+  $('inviteGuideClose').onclick=()=>$('inviteGuide').classList.add('hidden');
   $('cards').onclick=e=>{ const b=e.target.closest('[data-index]'); if(b) addNum(Number(b.dataset.index)); };
   $('operators').onclick=e=>{ const b=e.target.closest('[data-op]'); if(b) addOp(b.dataset.op); };
   $('backBtn').onclick=()=>{tokens.pop();renderInput();}; $('clearBtn').onclick=()=>{tokens=[];renderInput();};

@@ -36,7 +36,7 @@ test('all 404 ranked puzzles have a valid four-number answer and avatar assets e
     assert.equal(app.calculate(solutionTokens(solution,numbers),numbers),true,key);
   }
   const assets=fs.readdirSync(path.join(__dirname,'../public/avatars')).filter(name=>name.endsWith('.svg'));
-  assert.equal(assets.length,15);
+  assert.equal(assets.length,16);
 });
 test('equal scores use shorter total time as the tie breaker', () => {
   const players=[{id:'a',score:3,elapsedMs:82000},{id:'b',score:3,elapsedMs:71000}];

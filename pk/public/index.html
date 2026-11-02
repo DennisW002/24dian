@@ -37,6 +37,7 @@
   <section id="finish" class="panel hidden"><div class="step">对战结束</div><h2 id="winnerTitle">Winner</h2><div id="finalPlayers" class="players final"></div><p class="muted">先比得分；同分时总耗时更短者获胜。两项都相同则为平局。</p><button id="newBtn" class="primary wide">发起新对战</button></section>
 </main>
 <div id="result" class="overlay hidden"><div class="panel result"><div id="resultIcon" class="resultIcon"></div><h2 id="resultTitle"></h2><p id="resultText"></p><div class="actions"><button id="retryBtn" class="dark hidden">重新作答</button><button id="nextBtn" class="primary">下一关</button></div></div></div>
+<div id="inviteGuide" class="overlay inviteGuide hidden" role="dialog" aria-modal="true" aria-labelledby="inviteGuideTitle"><div class="panel result"><h2 id="inviteGuideTitle">微信邀请朋友</h2><p>复制专属房间链接，然后打开微信聊天，选择朋友并粘贴发送。</p><input id="inviteGuideUrl" type="text" readonly aria-label="房间邀请链接"><p id="inviteGuideStatus" class="muted">也可以长按链接手动复制。</p><div class="actions"><button id="inviteGuideCopy" class="primary">复制链接</button><button id="inviteGuideClose">完成</button></div></div></div>
 <div id="interferenceLayer" class="interferenceLayer" aria-hidden="true"></div>
 <div id="toast" class="toast hidden" role="status"></div>
 </body></html>
