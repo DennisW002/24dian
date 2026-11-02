@@ -9,3 +9,22 @@
 
 在线试玩：https://dennisw002.github.io/24dian/
 
+## 双人在线 PK
+
+双人版位于 `pk/`，需要一个运行 Node.js 的在线服务。房间由服务端创建并通过 WebSocket 实时同步；双方选择名字和 20 款头像之一，发起者分享房间链接，双方准备后由发起者开始。两人分别完成 5 关，最后显示得分、总耗时和 Winner（同分为平局）。服务端判题和计时，超时显示正确答案。
+
+本地运行：
+
+```bash
+npm ci
+npm start
+```
+
+打开 `http://localhost:3000/`。运行测试：`npm test`。
+
+### 发布双人版
+
+[通过 Render 部署](https://render.com/deploy?repo=https://github.com/DennisW002/24dian)。登录 Render 后确认仓库和 `render.yaml` 中的免费 Web Service 配置，部署完成后使用 Render 提供的 `https://…onrender.com/` 地址创建对战，并把该地址生成的邀请链接发给朋友。原 GitHub Pages 链接仍是单人版。
+
+免费服务闲置后会休眠，首次打开可能需要等待。房间暂存在服务内存中，服务重启后未完成的房间会过期；适合朋友间试玩。
+
