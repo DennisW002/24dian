@@ -66,6 +66,8 @@ test('two players pair, ready, race independently and see the winner', async () 
     a.send({type:'start'});
     await a.state(m=>m.phase==='playing');
     const room=app.rooms.get(joined.room);
+    a.send({type:'interfere',effect:'pig'});
+    await a.take(m=>m.type==='error'&&m.message.includes('先完成'));
     for(let level=1;level<=5;level++) {
       const puzzle=room.puzzles[level-1];
       if(level===1){
@@ -82,6 +84,20 @@ test('two players pair, ready, race independently and see the winner', async () 
     }
     const waiting=await b.state(m=>m.players[0].done&&m.players[1].level===1);
     assert.equal(waiting.phase,'playing');
+    const originalStart=room.players[1].startedAt;
+    a.send({type:'interfere',effect:'pig'});
+    const effect=await b.take(m=>m.type==='interference');
+    assert.equal(effect.effect,'pig');
+    await a.state(m=>m.interference.used===1);
+    assert.equal(room.players[1].level,1);
+    assert.equal(room.players[1].score,0);
+    assert.equal(room.players[1].startedAt,originalStart);
+    a.send({type:'interfere',effect:'sparkle'});
+    await a.take(m=>m.type==='error'&&m.message.includes('稍等'));
+    room.players[0].interferenceUsed=5;
+    room.players[0].interferenceAt=0;
+    a.send({type:'interfere',effect:'wink'});
+    await a.take(m=>m.type==='error'&&m.message.includes('次数'));
     room.players[1].startedAt=Date.now()-app.LIMIT-1;
     b.send({type:'submit',tokens:[]});
     const timeout=await b.state(m=>m.result?.kind==='timeout');

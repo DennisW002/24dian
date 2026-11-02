@@ -7,6 +7,9 @@ const { WebSocketServer, WebSocket } = require('ws');
 const PORT = Number(process.env.PORT || 3000);
 const LIMIT = 300_000;
 const TOTAL = 5;
+const INTERFERENCE_LIMIT = 5;
+const INTERFERENCE_COOLDOWN = 12_000;
+const EFFECTS = new Set(['pig', 'sparkle', 'wink']);
 const rooms = new Map();
 const publicDir = path.join(__dirname, 'public');
 const ranked = require('./ranked.json');
@@ -61,6 +64,7 @@ function snapshot(room, viewer) {
   return { type: 'state', room: room.id, phase: room.phase, host: room.host,
     winner: room.phase === 'finished' ? winnerId(room.players) : null,
     you: viewer, players: room.players.map(x => playerView(x, now)),
+    interference: { used: p.interferenceUsed, limit: INTERFERENCE_LIMIT, cooldownMs: Math.max(0, p.interferenceAt - now) },
     numbers: room.phase === 'playing' && !p.done ? room.puzzles[p.level - 1].n : null,
     remainingMs: p.startedAt ? Math.max(0, LIMIT - (now - p.startedAt)) : 0,
     result: p.result || null };
@@ -122,7 +126,7 @@ function handle(ws, msg) {
       if (room.players.length >= 2) return error(ws, '房间已满');
     }
     const id = crypto.randomBytes(16).toString('hex');
-    const p = { id, name, avatar, ws, ready: false, level: 1, score: 0, done: false, elapsedMs: 0, startedAt: 0, result: null };
+    const p = { id, name, avatar, ws, ready: false, level: 1, score: 0, done: false, elapsedMs: 0, startedAt: 0, result: null, interferenceUsed: 0, interferenceAt: 0 };
     room.players.push(p);
     if (!room.host) room.host = id;
     ws.room = room.id; ws.player = id;
@@ -138,6 +142,19 @@ function handle(ws, msg) {
   }
   const room = rooms.get(ws.room), p = room?.players.find(x => x.id === ws.player);
   if (!p || p.ws !== ws) return error(ws, '请先进入房间');
+  if (msg.type === 'interfere') {
+    const other = room.players.find(x => x.id !== p.id);
+    if (room.phase !== 'playing' || !p.done || !other || other.done) return error(ws, '只有先完成的玩家可向仍在作答的对手发送干扰');
+    if (!EFFECTS.has(msg.effect)) return error(ws, '不支持这种干扰');
+    if (p.interferenceUsed >= INTERFERENCE_LIMIT) return error(ws, '本场干扰次数已用完');
+    if (Date.now() < p.interferenceAt) return error(ws, '请稍等片刻再发送干扰');
+    if (other.ws?.readyState !== WebSocket.OPEN) return error(ws, '对手暂时离线');
+    p.interferenceUsed++;
+    p.interferenceAt = Date.now() + INTERFERENCE_COOLDOWN;
+    send(other.ws, { type: 'interference', effect: msg.effect, from: p.name });
+    broadcast(room);
+    return;
+  }
   if (msg.type === 'ready' && room.phase === 'lobby') { p.ready = !!msg.ready; broadcast(room); }
   else if (msg.type === 'start' && room.phase === 'lobby') {
     if (p.id !== room.host || room.players.length !== 2 || room.players.some(x => !x.ready)) return error(ws, '需要双方准备后由发起者开始');

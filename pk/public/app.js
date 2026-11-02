@@ -9,6 +9,7 @@ const avatars = [
 function avatarHtml(n) { const a=avatars[n]||avatars[0]; return a.type==='emoji'?`<span class="emoji" aria-label="${a.name}">${a.name}</span>`:`<img src="/avatars/${a.code}.svg" alt="${a.name}">`; }
 function esc(s) { return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 let selected=0, socket, state=null, tokens=[], shownLevel=0, localWrong=false, clockBase=0, clockRemaining=300000;
+let interferenceMuted=false, interferenceClockBase=0, interferenceCooldownMs=0;
 function toast(message) { $('toast').textContent=message; $('toast').classList.remove('hidden'); clearTimeout(toast.id); toast.id=setTimeout(()=>$('toast').classList.add('hidden'),3500); }
 function send(data) { if(socket?.readyState===WebSocket.OPEN) socket.send(JSON.stringify(data)); else toast('连接中，请稍后再试'); }
 function connect() {
@@ -19,11 +20,32 @@ function connect() {
     if(msg.type==='joined') { roomFromUrl=msg.room; localStorage.setItem(`pk:${msg.room}`,msg.token); history.replaceState(null,'',`?room=${msg.room}`); }
     else if(msg.type==='state') { state=msg; render(); }
     else if(msg.type==='wrong') { localWrong=true; showResult('wrong',msg.message); }
+    else if(msg.type==='interference') showInterference(msg.effect);
     else if(msg.type==='error') { toast(msg.message); if(msg.message.includes('过期')) { localStorage.removeItem(`pk:${roomFromUrl}`); roomFromUrl=null; state=null; history.replaceState(null,'',location.pathname); $('entryTitle').textContent='发起一场对战'; $('enterBtn').textContent='创建房间'; showSections('entry'); } }
   };
   socket.onclose=()=>{ toast('连接中断，正在重连'); setTimeout(connect,2000); };
 }
 function showSections(which) { for(const id of ['entry','lobby','game','waiting','finish']) $(id).classList.toggle('hidden',id!==which); }
+function showInterference(effect) {
+  if(interferenceMuted || state?.phase!=='playing' || state.players.find(p=>p.id===state.you)?.done) return;
+  const text={pig:'🐷 小猪路过！',sparkle:'✨ 星星闪闪！',wink:'😜 别分心哦！'}[effect];
+  if(!text) return;
+  const card=document.createElement('div');
+  card.className=`effect effect-${effect}`;
+  card.textContent=text;
+  $('interferenceLayer').append(card);
+  setTimeout(()=>card.remove(),2500);
+}
+function renderInterferenceControls() {
+  if(state?.phase!=='playing') return;
+  const me=state.players.find(p=>p.id===state.you);
+  if(!me?.done) return;
+  const other=state.players.find(p=>p.id!==state.you);
+  const remaining=Math.max(0,interferenceCooldownMs-(Date.now()-interferenceClockBase));
+  const exhausted=state.interference.used>=state.interference.limit;
+  $('interferenceActions').querySelectorAll('button').forEach(button=>{button.disabled=exhausted||remaining>0||!other?.online||other.done;});
+  $('interferenceStatus').textContent=exhausted?'本场次数已用完':remaining>0?`冷却中，还需 ${Math.ceil(remaining/1000)} 秒`:`剩余 ${state.interference.limit-state.interference.used} 次${other?.online?'':' · 对手离线'}`;
+}
 function playerCard(p, me, phase) {
   const status=phase==='lobby'?(p.ready?'已准备':'未准备'):p.done?'已完成':`第 ${p.level} / 5 关`;
   return `<div class="player">${avatarHtml(p.avatar)}<div><strong>${esc(p.name)}${p.id===me?'（你）':''}</strong><small>${status}${p.online?'':' · 离线'}</small></div><span class="badge">${p.score} 分</span></div>`;
@@ -40,12 +62,15 @@ function render() {
     $('lobbyHint').textContent=state.players.length<2?'等待朋友通过邀请链接加入。':state.players.every(p=>p.ready)?'双方已准备，发起者可以开始对战。':`${other.name}：${other.ready?'已准备':'未准备'}`;
   } else if(state.phase==='finished') {
     showSections('finish'); $('result').classList.add('hidden');
+    $('interferenceLayer').replaceChildren();
     const winner=state.players.find(p=>p.id===state.winner);
     $('winnerTitle').textContent=winner?`${winner.name} 是 Winner！`:'平局！';
     $('finalPlayers').innerHTML=state.players.map(p=>`<div class="player">${avatarHtml(p.avatar)}<div><strong>${esc(p.name)}</strong><small>得分 ${p.score} / 5<br>总耗时 ${formatTime(p.elapsedMs)}</small></div></div>`).join('');
   } else if(me.done) {
     showSections('waiting'); $('result').classList.add('hidden');
     $('waitingPlayers').innerHTML=state.players.map(p=>playerCard(p,state.you,'playing')).join('');
+    interferenceClockBase=Date.now(); interferenceCooldownMs=state.interference.cooldownMs;
+    renderInterferenceControls();
   } else {
     showSections('game'); $('progress').innerHTML=state.players.map(p=>playerCard(p,state.you,'playing')).join('');
     if(me.level!==shownLevel) { shownLevel=me.level; tokens=[]; localWrong=false; $('hint').textContent=''; }
@@ -91,7 +116,10 @@ document.addEventListener('DOMContentLoaded',()=>{
   $('retryBtn').onclick=()=>{localWrong=false;tokens=[];$('result').classList.add('hidden');renderInput();};
   $('nextBtn').onclick=()=>{ if(localWrong) {localWrong=false;send({type:'giveup'});} else send({type:'next'}); };
   $('newBtn').onclick=()=>{location.href=location.origin+'/';};
+  $('interferenceActions').onclick=e=>{const button=e.target.closest('[data-effect]');if(button&&!button.disabled) send({type:'interfere',effect:button.dataset.effect});};
+  $('muteBtn').onclick=()=>{interferenceMuted=!interferenceMuted;$('muteBtn').setAttribute('aria-pressed',String(interferenceMuted));$('muteBtn').textContent=interferenceMuted?'开启干扰':'关闭干扰';$('interferenceLayer').replaceChildren();};
   setInterval(renderClock,200);
+  setInterval(renderInterferenceControls,250);
   setInterval(()=>{ if(socket?.readyState===WebSocket.OPEN) send({type:'ping'}); },30000);
   connect();
 });

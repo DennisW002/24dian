@@ -26,16 +26,17 @@
   <section id="game" class="hidden">
     <div id="progress" class="players compact"></div>
     <div class="panel play">
-      <div class="gamehead"><div><div class="step">第 <span id="level">1</span> / 5 关</div><h2>算出 24</h2></div><div id="time" class="time">5:00</div></div>
+      <div class="gamehead"><div><div class="step">第 <span id="level">1</span> / 5 关</div><h2>算出 24</h2></div><div class="gameTools"><div id="time" class="time">5:00</div><button id="muteBtn" class="muteBtn" type="button" aria-pressed="false">关闭干扰</button></div></div>
       <div id="cards" class="cards"></div><div id="expr" class="expr"><span class="muted">点击数字和运算符组成算式</span></div>
       <p id="hint" class="hint"></p>
       <div id="operators" class="operators"><button data-op="+">+</button><button data-op="-">−</button><button data-op="*">×</button><button data-op="/">÷</button><button data-op="(">(</button><button data-op=")">)</button></div>
       <div class="actions"><button id="backBtn">退格</button><button id="clearBtn">清空</button><button id="skipBtn">放弃</button><button id="submitBtn" class="primary">提交答案</button></div>
     </div>
   </section>
-  <section id="waiting" class="panel hidden"><div class="step">已完成全部关卡</div><h2>等待对手完成</h2><p class="muted">对手仍在作答。双方结束后公布最终成绩。</p><div id="waitingPlayers" class="players"></div></section>
+  <section id="waiting" class="panel hidden"><div class="step">已完成全部关卡</div><h2>等待对手完成</h2><p class="muted">对手仍在作答。来点不妨碍操作的小恶作剧吧！</p><div id="waitingPlayers" class="players"></div><div class="mischief"><h3>猪猪捣蛋</h3><p>发送短暂的视觉动画；不会挡住按钮，也不会改变计时或分数。</p><div id="interferenceActions" class="actions"><button data-effect="pig">🐷 小猪路过</button><button data-effect="sparkle">✨ 星星闪闪</button><button data-effect="wink">😜 调皮眨眼</button></div><small id="interferenceStatus"></small></div></section>
   <section id="finish" class="panel hidden"><div class="step">对战结束</div><h2 id="winnerTitle">Winner</h2><div id="finalPlayers" class="players final"></div><p class="muted">先比得分；同分时总耗时更短者获胜。两项都相同则为平局。</p><button id="newBtn" class="primary wide">发起新对战</button></section>
 </main>
 <div id="result" class="overlay hidden"><div class="panel result"><div id="resultIcon" class="resultIcon"></div><h2 id="resultTitle"></h2><p id="resultText"></p><div class="actions"><button id="retryBtn" class="dark hidden">重新作答</button><button id="nextBtn" class="primary">下一关</button></div></div></div>
+<div id="interferenceLayer" class="interferenceLayer" aria-hidden="true"></div>
 <div id="toast" class="toast hidden" role="status"></div>
 </body></html>
