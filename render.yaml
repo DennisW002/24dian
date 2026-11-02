@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: 24dian-pk
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /health
+
