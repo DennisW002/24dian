@@ -38,6 +38,7 @@ function answer(v) { for (let i = 0; i < 4; i++) { if (i) op(v); card(i); } elem
 
 element('startBtn').onclick();
 assert.equal(element('time').textContent, '5:00');
+assert.equal(element('level').textContent, '1/5');
 advance(10_000);
 element('pauseBtn').onclick();
 assert.equal(document.body.classList.contains('paused'), true);
@@ -58,14 +59,15 @@ answer('-');
 advance(285_000);
 assert.equal(element('resTitle').textContent, '时间到');
 assert.equal(element('retryBtn').hidden, true);
+assert.match(element('resMsg').textContent, /正确答案：.+ = 24/);
 element('nextBtn').onclick();
-assert.equal(element('level').textContent, '2/10');
-for (let level = 2; level <= 10; level++) {
+assert.equal(element('level').textContent, '2/5');
+for (let level = 2; level <= 5; level++) {
   element('skip').onclick();
   element('nextBtn').onclick();
 }
 assert.equal(element('endOv').classList.contains('show'), true);
-assert.equal(element('endScore').textContent, '0/10');
+assert.equal(element('endScore').textContent, '0/5');
 element('closeBtn').onclick();
 assert.equal(closeCalled, true);
 assert.equal(element('closeMsg').hidden, false);
