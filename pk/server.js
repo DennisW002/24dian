@@ -9,13 +9,38 @@ const LIMIT = 300_000;
 const TOTAL = 5;
 const rooms = new Map();
 const publicDir = path.join(__dirname, 'public');
-const puzzles = [
-  [{ n: [4, 6, 7, 7], solution: '4 + 6 + 7 + 7' }, { n: [6, 6, 6, 6], solution: '6 + 6 + 6 + 6' }],
-  [{ n: [5, 5, 7, 7], solution: '5 + 5 + 7 + 7' }, { n: [3, 5, 7, 9], solution: '3 + 5 + 7 + 9' }],
-  [{ n: [1, 3, 8, 8], solution: '8 × (3 + 1) − 8' }, { n: [2, 4, 6, 8], solution: '8 × 4 − 6 − 2' }],
-  [{ n: [1, 1, 3, 8], solution: '8 × 3 × 1 × 1' }, { n: [2, 3, 4, 6], solution: '6 × 4 × (3 − 2)' }],
-  [{ n: [1, 1, 4, 6], solution: '6 × 4 × 1 × 1' }, { n: [3, 3, 8, 8], solution: '8 ÷ (3 − 8 ÷ 3)' }]
-];
+const ranked = require('./ranked.json');
+
+function solve(numbers) {
+  function search(items) {
+    if (items.length === 1) return items[0].f.n === 24 && items[0].f.d === 1 ? items[0].text : null;
+    for (let i = 0; i < items.length; i++) for (let j = 0; j < items.length; j++) {
+      if (i === j) continue;
+      const a = items[i], b = items[j], rest = items.filter((_, k) => k !== i && k !== j);
+      const candidates = [];
+      if (i < j) {
+        candidates.push({ f: F(a.f.n*b.f.d+b.f.n*a.f.d,a.f.d*b.f.d), text: `(${a.text} + ${b.text})` });
+        candidates.push({ f: F(a.f.n*b.f.n,a.f.d*b.f.d), text: `(${a.text} × ${b.text})` });
+      }
+      candidates.push({ f: F(a.f.n*b.f.d-b.f.n*a.f.d,a.f.d*b.f.d), text: `(${a.text} − ${b.text})` });
+      if (b.f.n) candidates.push({ f: F(a.f.n*b.f.d,a.f.d*b.f.n), text: `(${a.text} ÷ ${b.text})` });
+      for (const c of candidates) { const answer = search([...rest,c]); if (answer) return answer; }
+    }
+    return null;
+  }
+  const answer = search(numbers.map(n => ({f:F(n),text:String(n)})));
+  if (!answer) throw Error(`Unsolvable puzzle: ${numbers.join(',')}`);
+  return answer.slice(1,-1);
+}
+function choosePuzzles() {
+  return Array.from({length:TOTAL},(_,tier) => {
+    const lo = Math.floor(tier * ranked.length / TOTAL), hi = Math.floor((tier + 1) * ranked.length / TOTAL);
+    const key = ranked[lo + Math.floor(Math.random() * (hi - lo))];
+    const n = key.split('').map(Number);
+    for (let i=n.length-1;i>0;i--) { const j=Math.floor(Math.random()*(i+1)); [n[i],n[j]]=[n[j],n[i]]; }
+    return { n, solution:solve(n), tier:tier+1, key };
+  });
+}
 
 function send(ws, data) { if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(data)); }
 function error(ws, message) { send(ws, { type: 'error', message }); }
@@ -24,10 +49,17 @@ function playerView(p, now) {
     online: p.ws?.readyState === WebSocket.OPEN, level: p.level, score: p.score,
     done: p.done, elapsedMs: p.elapsedMs + (p.startedAt ? Math.min(LIMIT, now - p.startedAt) : 0) };
 }
+function winnerId(players) {
+  if (players.length !== 2) return null;
+  if (players[0].score !== players[1].score) return players[0].score > players[1].score ? players[0].id : players[1].id;
+  if (players[0].elapsedMs !== players[1].elapsedMs) return players[0].elapsedMs < players[1].elapsedMs ? players[0].id : players[1].id;
+  return null;
+}
 function snapshot(room, viewer) {
   const now = Date.now();
   const p = room.players.find(x => x.id === viewer);
   return { type: 'state', room: room.id, phase: room.phase, host: room.host,
+    winner: room.phase === 'finished' ? winnerId(room.players) : null,
     you: viewer, players: room.players.map(x => playerView(x, now)),
     numbers: room.phase === 'playing' && !p.done ? room.puzzles[p.level - 1].n : null,
     remainingMs: p.startedAt ? Math.max(0, LIMIT - (now - p.startedAt)) : 0,
@@ -81,7 +113,7 @@ function handle(ws, msg) {
     let room;
     if (msg.type === 'create') {
       const id = crypto.randomBytes(5).toString('hex');
-      room = { id, host: null, phase: 'lobby', players: [], puzzles: puzzles.map(group => group[Math.floor(Math.random() * group.length)]) };
+      room = { id, host: null, phase: 'lobby', players: [], puzzles: choosePuzzles() };
       rooms.set(id, room);
     } else {
       room = rooms.get(String(msg.room || '').toLowerCase());
@@ -124,9 +156,11 @@ const server = http.createServer((req, res) => {
   const url = new URL(req.url, 'http://localhost');
   if (url.pathname === '/health') { res.writeHead(200); return res.end('ok'); }
   const files = { '/': 'index.html', '/app.js': 'app.js', '/style.css': 'style.css' };
-  const file = files[url.pathname];
+  const avatar = /^\/avatars\/([0-9a-f-]+\.svg)$/.exec(url.pathname);
+  const file = avatar ? `avatars/${avatar[1]}` : files[url.pathname];
   if (!file) { res.writeHead(404); return res.end('Not found'); }
-  const type = file.endsWith('.js') ? 'application/javascript; charset=utf-8' : file.endsWith('.css') ? 'text/css; charset=utf-8' : 'text/html; charset=utf-8';
+  if (!fs.existsSync(path.join(publicDir,file))) { res.writeHead(404); return res.end('Not found'); }
+  const type = file.endsWith('.js') ? 'application/javascript; charset=utf-8' : file.endsWith('.css') ? 'text/css; charset=utf-8' : file.endsWith('.svg') ? 'image/svg+xml' : 'text/html; charset=utf-8';
   res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'no-cache' });
   fs.createReadStream(path.join(publicDir, file)).pipe(res);
 });
@@ -142,5 +176,4 @@ const tick = setInterval(() => {
   }
 }, 250);
 server.listen(PORT, () => console.log(`24dian PK listening on ${PORT}`));
-module.exports = { server, wss, rooms, tick, calculate, LIMIT };
-
+module.exports = { server, wss, rooms, tick, calculate, choosePuzzles, solve, winnerId, ranked, LIMIT };

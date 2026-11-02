@@ -1,6 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { once } = require('node:events');
+const fs = require('node:fs');
+const path = require('node:path');
 const { WebSocket } = require('ws');
 process.env.PORT = '0';
 const app = require('../server');
@@ -18,6 +20,32 @@ function solutionTokens(solution, numbers) {
     return {t:'o',v:({'−':'-','×':'*','÷':'/'}[part]||part)};
   });
 }
+test('each match draws solvable puzzles from ascending difficulty bands', () => {
+  const packs=Array.from({length:12},()=>app.choosePuzzles());
+  assert.ok(new Set(packs.map(pack=>pack.map(p=>p.key).join(','))).size>1);
+  for(const pack of packs) {
+    assert.deepEqual(pack.map(p=>p.tier),[1,2,3,4,5]);
+    assert.equal(new Set(pack.map(p=>p.key)).size,5);
+    for(const p of pack) assert.equal(app.calculate(solutionTokens(p.solution,p.n),p.n),true);
+  }
+});
+test('all 404 ranked puzzles have a valid four-number answer and avatar assets exist', () => {
+  assert.equal(app.ranked.length,404);
+  for(const key of app.ranked) {
+    const numbers=key.split('').map(Number), solution=app.solve(numbers);
+    assert.equal(app.calculate(solutionTokens(solution,numbers),numbers),true,key);
+  }
+  const assets=fs.readdirSync(path.join(__dirname,'../public/avatars')).filter(name=>name.endsWith('.svg'));
+  assert.equal(assets.length,15);
+});
+test('equal scores use shorter total time as the tie breaker', () => {
+  const players=[{id:'a',score:3,elapsedMs:82000},{id:'b',score:3,elapsedMs:71000}];
+  assert.equal(app.winnerId(players),'b');
+  players[0].elapsedMs=71000;
+  assert.equal(app.winnerId(players),null);
+  players[0].score=4;
+  assert.equal(app.winnerId(players),'a');
+});
 test('two players pair, ready, race independently and see the winner', async () => {
   if (!app.server.listening) await once(app.server,'listening');
   const url=`ws://127.0.0.1:${app.server.address().port}/ws`;
@@ -69,9 +97,9 @@ test('two players pair, ready, race independently and see the winner', async () 
     const finished=await a.state(m=>m.phase==='finished');
     assert.equal(finished.players[0].score,5);
     assert.equal(finished.players[1].score,0);
+    assert.equal(finished.winner,finished.players[0].id);
   } finally {
     a.ws.terminate(); b.ws.terminate();
     clearInterval(app.tick); app.wss.close(); app.server.close();
   }
 });
-

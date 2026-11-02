@@ -1,6 +1,6 @@
 {
-  "name": "24点小游戏",
-  "short_name": "24点",
+  "name": "胖猪来24点",
+  "short_name": "胖猪24点",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

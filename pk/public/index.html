@@ -2,18 +2,19 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#f6f1e7"><title>24 点 · 双人 PK</title>
+  <meta name="theme-color" content="#f6f1e7"><title>胖猪来24点 · 双人 PK</title>
   <link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script>
 </head>
 <body>
 <main class="wrap">
-  <header><div><div class="eyebrow">双人在线对战</div><h1><b>24</b> 点 <span>PK</span></h1></div><a href="https://dennisw002.github.io/24dian/">单人版 ↗</a></header>
+  <header><div><div class="eyebrow">双人在线对战</div><h1>胖猪来<b>24</b>点 <span>PK</span></h1></div><a href="https://dennisw002.github.io/24dian/">单人版 ↗</a></header>
   <section id="entry" class="panel">
     <div class="step">01 / 创建你的玩家档案</div><h2 id="entryTitle">发起一场对战</h2>
     <label for="name">玩家名字</label><input id="name" maxlength="16" placeholder="输入你的名字" autocomplete="nickname">
     <div class="label">选择头像 <small>20 款</small></div><div id="avatars" class="avatars"></div>
     <button id="enterBtn" class="primary wide">创建房间</button>
-    <p class="muted">每场 5 关，每关 5 分钟。双方分别作答，得分高者获胜。</p>
+    <p class="muted">每场 5 关，题目由易到难，每关 5 分钟。先比得分，同分时比总耗时。</p>
+    <p class="credit">职业人物与动物头像来自 <a href="https://github.com/jdecked/twemoji" target="_blank" rel="noopener">Twemoji</a>，采用 <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> 许可。</p>
   </section>
   <section id="lobby" class="panel hidden">
     <div class="step">02 / 对战准备</div><h2>等待双方就位</h2>
@@ -33,9 +34,8 @@
     </div>
   </section>
   <section id="waiting" class="panel hidden"><div class="step">已完成全部关卡</div><h2>等待对手完成</h2><p class="muted">对手仍在作答。双方结束后公布最终成绩。</p><div id="waitingPlayers" class="players"></div></section>
-  <section id="finish" class="panel hidden"><div class="step">对战结束</div><h2 id="winnerTitle">Winner</h2><div id="finalPlayers" class="players final"></div><p class="muted">得分相同时为平局。总耗时仅作展示。</p><button id="newBtn" class="primary wide">发起新对战</button></section>
+  <section id="finish" class="panel hidden"><div class="step">对战结束</div><h2 id="winnerTitle">Winner</h2><div id="finalPlayers" class="players final"></div><p class="muted">先比得分；同分时总耗时更短者获胜。两项都相同则为平局。</p><button id="newBtn" class="primary wide">发起新对战</button></section>
 </main>
 <div id="result" class="overlay hidden"><div class="panel result"><div id="resultIcon" class="resultIcon"></div><h2 id="resultTitle"></h2><p id="resultText"></p><div class="actions"><button id="retryBtn" class="dark hidden">重新作答</button><button id="nextBtn" class="primary">下一关</button></div></div></div>
 <div id="toast" class="toast hidden" role="status"></div>
 </body></html>
-

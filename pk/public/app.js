@@ -1,30 +1,12 @@
 const $ = id => document.getElementById(id);
 let roomFromUrl = new URLSearchParams(location.search).get('room');
 const avatars = [
-  ...['阿杰','小宇','阿诚','乐乐','大川'].map((name,i)=>({name,type:'male',i})),
-  ...['小晴','安安','可可','阿月','小岚'].map((name,i)=>({name,type:'female',i})),
-  ...['小熊','小兔','小猫','小狐','小狗'].map((name,i)=>({name,type:'animal',i})),
+  ...[['宇航员','1f468-200d-1f680'],['厨师','1f468-200d-1f373'],['画家','1f468-200d-1f3a8'],['消防员','1f468-200d-1f692'],['科学家','1f468-200d-1f52c']].map(([name,code])=>({name:`男${name}`,type:'male',code})),
+  ...[['宇航员','1f469-200d-1f680'],['厨师','1f469-200d-1f373'],['画家','1f469-200d-1f3a8'],['消防员','1f469-200d-1f692'],['科学家','1f469-200d-1f52c']].map(([name,code])=>({name:`女${name}`,type:'female',code})),
+  ...[['小熊','1f43b'],['小兔','1f430'],['小猫','1f431'],['小狐','1f98a'],['小狗','1f436']].map(([name,code])=>({name,type:'animal',code})),
   ...['😀','😎','🤖','👽','🥳'].map((name,i)=>({name,type:'emoji',i}))
 ];
-const skin = ['#f4c6a7','#d99a73','#efb892','#b98263','#f3d1ad'];
-const hair = ['#322923','#563a2b','#b56b3d','#292f44','#673b35'];
-const shirt = ['#5a7fa7','#e19b57','#6d9e83','#9477ae','#d97772'];
-const animal = ['#b87d51','#e5d7c5','#a9a8a7','#dc914d','#bb956f'];
-function svgFor(a) {
-  const i=a.i, face=skin[i], h=hair[i], top=shirt[i];
-  let art;
-  if(a.type==='animal') {
-    const ears = i===1 ? '<ellipse cx="15" cy="18" rx="7" ry="18"/><ellipse cx="49" cy="18" rx="7" ry="18"/>'
-      : i===2 ? '<path d="M8 27 9 8 24 18M40 18 55 8 56 27"/>'
-      : '<circle cx="16" cy="18" r="10"/><circle cx="48" cy="18" r="10"/>';
-    art=`<g fill="${animal[i]}">${ears}<circle cx="32" cy="34" r="24"/></g><ellipse cx="32" cy="43" rx="13" ry="10" fill="#f7e3cf"/><circle cx="23" cy="33" r="2.5"/><circle cx="41" cy="33" r="2.5"/><path d="M29 43q3 4 6 0" fill="none" stroke="#43342e" stroke-width="2" stroke-linecap="round"/>`;
-  } else {
-    const long=a.type==='female';
-    art=`<path d="M8 64q2-18 24-18t24 18" fill="${top}"/>${long?`<ellipse cx="32" cy="28" rx="22" ry="27" fill="${h}"/>`:''}<circle cx="32" cy="31" r="19" fill="${face}"/><path d="M13 27q0-20 19-20t19 20q-8-9-19-7-10-1-19 7" fill="${h}"/>${!long&&i%2===0?`<path d="M15 17q15-17 32-1" fill="none" stroke="${h}" stroke-width="7"/>`:''}<circle cx="25" cy="32" r="2"/><circle cx="39" cy="32" r="2"/><path d="M27 41q5 5 10 0" fill="none" stroke="#9b514f" stroke-width="2" stroke-linecap="round"/>`;
-  }
-  return `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><rect width="64" height="64" rx="18" fill="#f1e7d7"/>${art}</svg>`)}`;
-}
-function avatarHtml(n) { const a=avatars[n]||avatars[0]; return a.type==='emoji'?`<span class="emoji" aria-label="${a.name}">${a.name}</span>`:`<img src="${svgFor(a)}" alt="${a.name}">`; }
+function avatarHtml(n) { const a=avatars[n]||avatars[0]; return a.type==='emoji'?`<span class="emoji" aria-label="${a.name}">${a.name}</span>`:`<img src="/avatars/${a.code}.svg" alt="${a.name}">`; }
 function esc(s) { return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 let selected=0, socket, state=null, tokens=[], shownLevel=0, localWrong=false, clockBase=0, clockRemaining=300000;
 function toast(message) { $('toast').textContent=message; $('toast').classList.remove('hidden'); clearTimeout(toast.id); toast.id=setTimeout(()=>$('toast').classList.add('hidden'),3500); }
@@ -58,8 +40,8 @@ function render() {
     $('lobbyHint').textContent=state.players.length<2?'等待朋友通过邀请链接加入。':state.players.every(p=>p.ready)?'双方已准备，发起者可以开始对战。':`${other.name}：${other.ready?'已准备':'未准备'}`;
   } else if(state.phase==='finished') {
     showSections('finish'); $('result').classList.add('hidden');
-    const max=Math.max(...state.players.map(p=>p.score)), winners=state.players.filter(p=>p.score===max);
-    $('winnerTitle').textContent=winners.length===2?'平局！':`${winners[0].name} 是 Winner！`;
+    const winner=state.players.find(p=>p.id===state.winner);
+    $('winnerTitle').textContent=winner?`${winner.name} 是 Winner！`:'平局！';
     $('finalPlayers').innerHTML=state.players.map(p=>`<div class="player">${avatarHtml(p.avatar)}<div><strong>${esc(p.name)}</strong><small>得分 ${p.score} / 5<br>总耗时 ${formatTime(p.elapsedMs)}</small></div></div>`).join('');
   } else if(me.done) {
     showSections('waiting'); $('result').classList.add('hidden');
@@ -94,14 +76,14 @@ function addNum(i) { if(!state||state.phase!=='playing'||localWrong||state.resul
 function addOp(v) { if(state?.phase!=='playing'||localWrong||state.result) return; tokens.push({t:'o',v}); renderInput(); }
 document.addEventListener('DOMContentLoaded',()=>{
   $('entryTitle').textContent=roomFromUrl?'加入朋友的对战':'发起一场对战'; $('enterBtn').textContent=roomFromUrl?'加入对战':'创建房间';
-  $('avatars').innerHTML=avatars.map((a,i)=>`<button class="avatarChoice${i===0?' selected':''}" data-avatar="${i}" title="${a.name}" aria-label="${a.name}">${avatarHtml(i)}</button>`).join('');
+  $('avatars').innerHTML=[['男生角色',0],['女生角色',5],['动物角色',10],['Emoji',15]].map(([label,start])=>`<div class="avatarGroup"><h3>${label}</h3><div class="avatarGrid">${avatars.slice(start,start+5).map((a,i)=>`<button class="avatarChoice${start+i===0?' selected':''}" data-avatar="${start+i}" title="${a.name}" aria-label="${a.name}">${avatarHtml(start+i)}</button>`).join('')}</div></div>`).join('');
   $('avatars').onclick=e=>{ const b=e.target.closest('[data-avatar]'); if(!b) return; selected=Number(b.dataset.avatar); document.querySelectorAll('.avatarChoice').forEach(x=>x.classList.toggle('selected',x===b)); };
   $('enterBtn').onclick=()=>{ const name=$('name').value.trim(); if(!name) return toast('请输入玩家名字'); send({type:roomFromUrl?'join':'create',room:roomFromUrl,name,avatar:selected}); };
   $('readyBtn').onclick=()=>{ const me=state.players.find(p=>p.id===state.you); send({type:'ready',ready:!me.ready}); };
   $('startBtn').onclick=()=>send({type:'start'});
   const invite=()=>`${location.origin}/?room=${state.room}`;
   $('copyBtn').onclick=async()=>{ try{await navigator.clipboard.writeText(invite());toast('邀请链接已复制');}catch{toast('复制失败，请长按链接复制');} };
-  $('shareBtn').onclick=async()=>{ if(navigator.share) { try{await navigator.share({title:'24 点双人 PK',text:'来和我在线玩 24 点！',url:invite()});}catch{} } else $('copyBtn').onclick(); };
+  $('shareBtn').onclick=async()=>{ if(navigator.share) { try{await navigator.share({title:'胖猪来24点 · 双人 PK',text:'来和我在线玩胖猪来24点！',url:invite()});}catch{} } else $('copyBtn').onclick(); };
   $('cards').onclick=e=>{ const b=e.target.closest('[data-index]'); if(b) addNum(Number(b.dataset.index)); };
   $('operators').onclick=e=>{ const b=e.target.closest('[data-op]'); if(b) addOp(b.dataset.op); };
   $('backBtn').onclick=()=>{tokens.pop();renderInput();}; $('clearBtn').onclick=()=>{tokens=[];renderInput();};
@@ -113,4 +95,3 @@ document.addEventListener('DOMContentLoaded',()=>{
   setInterval(()=>{ if(socket?.readyState===WebSocket.OPEN) send({type:'ping'}); },30000);
   connect();
 });
-
