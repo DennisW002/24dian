@@ -114,6 +114,13 @@ test('two players pair, ready, race independently and see the winner', async () 
     assert.equal(finished.players[0].score,5);
     assert.equal(finished.players[1].score,0);
     assert.equal(finished.winner,finished.players[0].id);
+    const replacement=new Client(new WebSocket(url));
+    await once(replacement.ws,'open');
+    const displaced=once(a.ws,'close');
+    replacement.send({type:'reconnect',room:joined.room,token:joined.token});
+    await replacement.state(m=>m.phase==='finished'&&m.you===joined.token);
+    assert.equal((await displaced)[0],4001);
+    replacement.ws.terminate();
   } finally {
     a.ws.terminate(); b.ws.terminate();
     clearInterval(app.tick); app.wss.close(); app.server.close();

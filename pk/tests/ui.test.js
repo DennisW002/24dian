@@ -15,16 +15,21 @@ function element() {
 test('full-screen effects use particles and invitation copies the room link', async () => {
   const nodes = new Map();
   const copied = [];
+  const stored = new Map([['pk:lastRoom','abc123'],['pk:abc123','host-token']]);
   const document = {
     getElementById(id) { if (!nodes.has(id)) nodes.set(id, element()); return nodes.get(id); },
     createElement() { return element(); }, addEventListener() {}
   };
   const context = vm.createContext({
     document, navigator: { clipboard: { async writeText(value) { copied.push(value); } } },
+    localStorage: { getItem:key=>stored.get(key)||null, setItem:(key,value)=>stored.set(key,value), removeItem:key=>stored.delete(key) },
     location: { search: '', origin: 'https://example.com' }, URLSearchParams, Math,
     setTimeout() {}, clearTimeout() {}
   });
   vm.runInContext(source, context);
+  const resume=vm.runInContext('resumeTarget()',context);
+  assert.equal(resume.room,'abc123');
+  assert.equal(resume.token,'host-token');
   vm.runInContext("state={room:'abc123',phase:'playing',you:'p1',players:[{id:'p1',done:false}]};showInterference('pig');showInterference('sparkle')", context);
   const scenes = document.getElementById('interferenceLayer').children;
   assert.equal(scenes.length, 2);

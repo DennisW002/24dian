@@ -12,18 +12,23 @@ let selected=0, socket, state=null, tokens=[], shownLevel=0, localWrong=false, c
 let interferenceMuted=false, interferenceClockBase=0, interferenceCooldownMs=0;
 function toast(message) { $('toast').textContent=message; $('toast').classList.remove('hidden'); clearTimeout(toast.id); toast.id=setTimeout(()=>$('toast').classList.add('hidden'),3500); }
 function send(data) { if(socket?.readyState===WebSocket.OPEN) socket.send(JSON.stringify(data)); else toast('连接中，请稍后再试'); }
+function resumeTarget() {
+  const room=roomFromUrl||localStorage.getItem('pk:lastRoom');
+  const token=room&&localStorage.getItem(`pk:${room}`);
+  return token?{room,token}:null;
+}
 function connect() {
   socket=new WebSocket(`${location.protocol==='https:'?'wss':'ws'}://${location.host}/ws`);
-  socket.onopen=()=>{ const token=roomFromUrl&&localStorage.getItem(`pk:${roomFromUrl}`); if(token) send({type:'reconnect',room:roomFromUrl,token}); };
+  socket.onopen=()=>{ const target=resumeTarget(); if(target) send({type:'reconnect',...target}); };
   socket.onmessage=event=>{
     const msg=JSON.parse(event.data);
-    if(msg.type==='joined') { roomFromUrl=msg.room; localStorage.setItem(`pk:${msg.room}`,msg.token); history.replaceState(null,'',`?room=${msg.room}`); }
-    else if(msg.type==='state') { state=msg; render(); }
+    if(msg.type==='joined') { roomFromUrl=msg.room; localStorage.setItem(`pk:${msg.room}`,msg.token); localStorage.setItem('pk:lastRoom',msg.room); history.replaceState(null,'',`?room=${msg.room}`); }
+    else if(msg.type==='state') { roomFromUrl=msg.room; localStorage.setItem('pk:lastRoom',msg.room); history.replaceState(null,'',`?room=${msg.room}`); state=msg; render(); }
     else if(msg.type==='wrong') { localWrong=true; showResult('wrong',msg.message); }
     else if(msg.type==='interference') showInterference(msg.effect);
-    else if(msg.type==='error') { toast(msg.message); if(msg.message.includes('过期')) { localStorage.removeItem(`pk:${roomFromUrl}`); roomFromUrl=null; state=null; history.replaceState(null,'',location.pathname); $('entryTitle').textContent='发起一场对战'; $('enterBtn').textContent='创建房间'; showSections('entry'); } }
+    else if(msg.type==='error') { toast(msg.message); if(msg.message.includes('过期')) { const expired=roomFromUrl||localStorage.getItem('pk:lastRoom'); localStorage.removeItem(`pk:${expired}`); if(localStorage.getItem('pk:lastRoom')===expired) localStorage.removeItem('pk:lastRoom'); roomFromUrl=null; state=null; history.replaceState(null,'',location.pathname); $('entryTitle').textContent='发起一场对战'; $('enterBtn').textContent='创建房间'; $('enterBtn').disabled=false; showSections('entry'); } }
   };
-  socket.onclose=()=>{ toast('连接中断，正在重连'); setTimeout(connect,2000); };
+  socket.onclose=event=>{ if(event.code===4001) { toast('房间已在另一个页面打开；刷新此页可重新接管'); return; } toast('连接中断，正在重连'); setTimeout(connect,2000); };
 }
 function showSections(which) { for(const id of ['entry','lobby','game','waiting','finish']) $(id).classList.toggle('hidden',id!==which); }
 function showInterference(effect) {
@@ -126,7 +131,9 @@ function showResult(kind, detail) {
 function addNum(i) { if(!state||state.phase!=='playing'||localWrong||state.result) return; if(tokens.some(t=>t.t==='n'&&t.i===i)) return; const last=tokens.at(-1); if(last&&(last.t==='n'||last.v===')')) return toast('数字前面需要运算符'); tokens.push({t:'n',i}); renderInput(); }
 function addOp(v) { if(state?.phase!=='playing'||localWrong||state.result) return; tokens.push({t:'o',v}); renderInput(); }
 document.addEventListener('DOMContentLoaded',()=>{
-  $('entryTitle').textContent=roomFromUrl?'加入朋友的对战':'发起一场对战'; $('enterBtn').textContent=roomFromUrl?'加入对战':'创建房间';
+  const restoring=resumeTarget();
+  $('entryTitle').textContent=restoring?'正在恢复上次的对战':roomFromUrl?'加入朋友的对战':'发起一场对战';
+  $('enterBtn').textContent=roomFromUrl?'加入对战':'创建房间'; $('enterBtn').disabled=!!restoring;
   $('avatars').innerHTML=[['男生角色',0],['女生角色',5],['动物角色',10],['Emoji',15]].map(([label,start])=>`<div class="avatarGroup"><h3>${label}</h3><div class="avatarGrid">${avatars.slice(start,start+5).map((a,i)=>`<button class="avatarChoice${start+i===0?' selected':''}" data-avatar="${start+i}" title="${a.name}" aria-label="${a.name}">${avatarHtml(start+i)}</button>`).join('')}</div></div>`).join('');
   $('avatars').onclick=e=>{ const b=e.target.closest('[data-avatar]'); if(!b) return; selected=Number(b.dataset.avatar); document.querySelectorAll('.avatarChoice').forEach(x=>x.classList.toggle('selected',x===b)); };
   $('enterBtn').onclick=()=>{ const name=$('name').value.trim(); if(!name) return toast('请输入玩家名字'); send({type:roomFromUrl?'join':'create',room:roomFromUrl,name,avatar:selected}); };
@@ -142,7 +149,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   $('submitBtn').onclick=()=>send({type:'submit',tokens}); $('skipBtn').onclick=()=>send({type:'skip'});
   $('retryBtn').onclick=()=>{localWrong=false;tokens=[];$('result').classList.add('hidden');renderInput();};
   $('nextBtn').onclick=()=>{ if(localWrong) {localWrong=false;send({type:'giveup'});} else send({type:'next'}); };
-  $('newBtn').onclick=()=>{location.href=location.origin+'/';};
+  $('newBtn').onclick=()=>{const room=localStorage.getItem('pk:lastRoom');if(room){localStorage.removeItem(`pk:${room}`);localStorage.removeItem('pk:lastRoom');}location.href=location.origin+'/';};
   $('interferenceActions').onclick=e=>{const button=e.target.closest('[data-effect]');if(button&&!button.disabled) send({type:'interfere',effect:button.dataset.effect});};
   $('muteBtn').onclick=()=>{interferenceMuted=!interferenceMuted;$('muteBtn').setAttribute('aria-pressed',String(interferenceMuted));$('muteBtn').textContent=interferenceMuted?'开启干扰':'关闭干扰';$('interferenceLayer').replaceChildren();};
   setInterval(renderClock,200);

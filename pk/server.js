@@ -137,7 +137,8 @@ function handle(ws, msg) {
     const room = rooms.get(String(msg.room || '').toLowerCase());
     const p = room?.players.find(x => x.id === msg.token);
     if (!p) return error(ws, '对战已过期，请创建新房间');
-    p.ws?.close(); p.ws = ws; ws.room = room.id; ws.player = p.id;
+    if(p.ws && p.ws !== ws) p.ws.close(4001, 'Session opened elsewhere');
+    p.ws = ws; ws.room = room.id; ws.player = p.id;
     broadcast(room); return;
   }
   const room = rooms.get(ws.room), p = room?.players.find(x => x.id === ws.player);
