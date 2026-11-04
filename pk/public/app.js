@@ -8,27 +8,47 @@ const avatars = [
 ];
 function avatarHtml(n) { const a=avatars[n]||avatars[0]; return a.type==='emoji'?`<span class="emoji" aria-label="${a.name}">${a.name}</span>`:`<img src="/avatars/${a.code}.svg" alt="${a.name}">`; }
 function esc(s) { return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-let selected=0, socket, state=null, tokens=[], shownLevel=0, localWrong=false, clockBase=0, clockRemaining=300000;
+let selected=0, socket, state=null, tokens=[], shownLevel=0, localWrong=false, clockBase=0, clockRemaining=300000, leavePending=false;
 let interferenceMuted=false, interferenceClockBase=0, interferenceCooldownMs=0;
 function toast(message) { $('toast').textContent=message; $('toast').classList.remove('hidden'); clearTimeout(toast.id); toast.id=setTimeout(()=>$('toast').classList.add('hidden'),3500); }
 function send(data) { if(socket?.readyState===WebSocket.OPEN) socket.send(JSON.stringify(data)); else toast('连接中，请稍后再试'); }
 function resumeTarget() {
-  const room=roomFromUrl||localStorage.getItem('pk:lastRoom');
+  const room=roomFromUrl;
   const token=room&&localStorage.getItem(`pk:${room}`);
   return token?{room,token}:null;
+}
+function resetRoom(message) {
+  const room=state?.room||roomFromUrl;
+  if(room) localStorage.removeItem(`pk:${room}`);
+  localStorage.removeItem('pk:lastRoom');
+  roomFromUrl=null; state=null; tokens=[]; shownLevel=0; localWrong=false; leavePending=false;
+  history.replaceState(null,'',location.pathname);
+  $('result').classList.add('hidden'); $('inviteGuide').classList.add('hidden'); $('interferenceLayer').replaceChildren();
+  $('entryTitle').textContent='发起一场对战'; $('enterBtn').textContent='创建房间'; $('enterBtn').disabled=false;
+  showSections('entry');
+  if(message) toast(message);
+}
+function leaveRoom() {
+  if(!state || leavePending) return;
+  if(socket?.readyState!==WebSocket.OPEN) return resetRoom('已返回开始界面');
+  leavePending=true;
+  document.querySelectorAll('[data-leave]').forEach(button=>{button.disabled=true;});
+  send({type:'leave'});
 }
 function connect() {
   socket=new WebSocket(`${location.protocol==='https:'?'wss':'ws'}://${location.host}/ws`);
   socket.onopen=()=>{ const target=resumeTarget(); if(target) send({type:'reconnect',...target}); };
   socket.onmessage=event=>{
     const msg=JSON.parse(event.data);
-    if(msg.type==='joined') { roomFromUrl=msg.room; localStorage.setItem(`pk:${msg.room}`,msg.token); localStorage.setItem('pk:lastRoom',msg.room); history.replaceState(null,'',`?room=${msg.room}`); }
-    else if(msg.type==='state') { roomFromUrl=msg.room; localStorage.setItem('pk:lastRoom',msg.room); history.replaceState(null,'',`?room=${msg.room}`); state=msg; render(); }
+    if(msg.type==='joined' && !leavePending) { roomFromUrl=msg.room; localStorage.setItem(`pk:${msg.room}`,msg.token); history.replaceState(null,'',`?room=${msg.room}`); }
+    else if(msg.type==='state' && !leavePending) { roomFromUrl=msg.room; history.replaceState(null,'',`?room=${msg.room}`); state=msg; render(); }
+    else if(msg.type==='left') resetRoom('已退出房间');
+    else if(msg.type==='room_closed') resetRoom('对手已退出房间');
     else if(msg.type==='wrong') { localWrong=true; showResult('wrong',msg.message); }
     else if(msg.type==='interference') showInterference(msg.effect);
-    else if(msg.type==='error') { toast(msg.message); if(msg.message.includes('过期')) { const expired=roomFromUrl||localStorage.getItem('pk:lastRoom'); localStorage.removeItem(`pk:${expired}`); if(localStorage.getItem('pk:lastRoom')===expired) localStorage.removeItem('pk:lastRoom'); roomFromUrl=null; state=null; history.replaceState(null,'',location.pathname); $('entryTitle').textContent='发起一场对战'; $('enterBtn').textContent='创建房间'; $('enterBtn').disabled=false; showSections('entry'); } }
+    else if(msg.type==='error') { if(msg.message.includes('过期')) resetRoom(msg.message); else { leavePending=false; toast(msg.message); if(state) render(); } }
   };
-  socket.onclose=event=>{ if(event.code===4001) { toast('房间已在另一个页面打开；刷新此页可重新接管'); return; } toast('连接中断，正在重连'); setTimeout(connect,2000); };
+  socket.onclose=event=>{ if(event.code===4001) { toast('房间已在另一个页面打开；刷新此页可重新接管'); return; } if(leavePending) resetRoom('已返回开始界面'); else toast('连接中断，正在重连'); setTimeout(connect,2000); };
 }
 function showSections(which) { for(const id of ['entry','lobby','game','waiting','finish']) $(id).classList.toggle('hidden',id!==which); }
 function showInterference(effect) {
@@ -84,15 +104,21 @@ function playerCard(p, me, phase) {
   const status=phase==='lobby'?(p.ready?'已准备':'未准备'):p.done?'已完成':`第 ${p.level} / ${state.total} 关`;
   return `<div class="player">${avatarHtml(p.avatar)}<div><strong>${esc(p.name)}${p.id===me?'（你）':''}</strong><small>${status}${p.online?'':' · 离线'}</small></div><span class="badge">${p.score} 分</span></div>`;
 }
+function renderOfflineControls(other) {
+  const offline=state.phase!=='finished'&&!!other&&!other.online;
+  for(const id of ['lobbyOffline','gameOffline','waitingOffline','resultOffline']) $(id).classList.toggle('hidden',!offline);
+  document.querySelectorAll('[data-leave]').forEach(button=>{button.disabled=leavePending;});
+}
 function render() {
   const me=state.players.find(p=>p.id===state.you), other=state.players.find(p=>p.id!==state.you);
+  renderOfflineControls(other);
   if(state.phase==='lobby') {
     showSections('lobby'); $('result').classList.add('hidden');
     $('roomPlayers').innerHTML=state.players.map(p=>playerCard(p,state.you,'lobby')).join('')+(other?'':'<div class="player"><div><strong>等待朋友加入…</strong><small>把邀请链接发给朋友</small></div></div>');
     $('inviteUrl').textContent=`${location.origin}/?room=${state.room}`;
     $('readyBtn').textContent=me.ready?'取消准备':'准备';
     $('startBtn').classList.toggle('hidden',state.host!==state.you);
-    $('startBtn').disabled=state.players.length!==2||state.players.some(p=>!p.ready);
+    $('startBtn').disabled=state.players.length!==2||state.players.some(p=>!p.ready||!p.online);
     $('lobbyHint').textContent=state.players.length<2?'等待朋友通过邀请链接加入。':state.players.every(p=>p.ready)?'双方已准备，发起者可以开始对战。':`${other.name}：${other.ready?'已准备':'未准备'}`;
   } else if(state.phase==='finished') {
     showSections('finish'); $('result').classList.add('hidden');
@@ -152,7 +178,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   $('submitBtn').onclick=()=>send({type:'submit',tokens}); $('skipBtn').onclick=()=>send({type:'skip'});
   $('retryBtn').onclick=()=>{localWrong=false;tokens=[];$('result').classList.add('hidden');renderInput();};
   $('nextBtn').onclick=()=>{ if(localWrong) {localWrong=false;send({type:'giveup'});} else send({type:'next'}); };
-  $('newBtn').onclick=()=>{const room=localStorage.getItem('pk:lastRoom');if(room){localStorage.removeItem(`pk:${room}`);localStorage.removeItem('pk:lastRoom');}location.href=location.origin+'/';};
+  $('newBtn').onclick=leaveRoom;
+  document.querySelectorAll('[data-leave]').forEach(button=>{button.onclick=leaveRoom;});
   $('interferenceActions').onclick=e=>{const button=e.target.closest('[data-effect]');if(button&&!button.disabled) send({type:'interfere',effect:button.dataset.effect});};
   $('muteBtn').onclick=()=>{interferenceMuted=!interferenceMuted;$('muteBtn').setAttribute('aria-pressed',String(interferenceMuted));$('muteBtn').textContent=interferenceMuted?'开启干扰':'关闭干扰';$('interferenceLayer').replaceChildren();};
   setInterval(renderClock,200);

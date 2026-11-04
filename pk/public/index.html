@@ -18,12 +18,14 @@
   </section>
   <section id="lobby" class="panel hidden">
     <div class="step">02 / 对战准备</div><h2>等待双方就位</h2>
+    <div id="lobbyOffline" class="offlineNotice hidden"><span>对手已离线，可等待对方回来，或退出当前房间。</span><button type="button" data-leave>退出房间</button></div>
     <div id="roomPlayers" class="players"></div>
     <div class="invite"><div><small>邀请链接</small><div id="inviteUrl" class="url"></div></div><button id="shareBtn">微信邀请</button><button id="copyBtn">复制链接</button></div>
     <p id="lobbyHint" class="muted"></p>
     <div class="actions"><button id="readyBtn" class="primary">准备</button><button id="startBtn" class="dark hidden">开始对战</button></div>
   </section>
   <section id="game" class="hidden">
+    <div id="gameOffline" class="offlineNotice hidden"><span>对手已离线。你可以继续作答、等待对方回来，或退出当前房间。</span><button type="button" data-leave>退出房间</button></div>
     <div id="progress" class="players compact"></div>
     <div class="panel play">
       <div class="gamehead"><div><div class="step">第 <span id="level">1</span> / 10 关</div><h2>算出 24</h2></div><div class="gameTools"><div id="time" class="time">5:00</div><button id="muteBtn" class="muteBtn" type="button" aria-pressed="false">关闭干扰</button></div></div>
@@ -33,10 +35,10 @@
       <div class="actions"><button id="backBtn">退格</button><button id="clearBtn">清空</button><button id="skipBtn">放弃</button><button id="submitBtn" class="primary">提交答案</button></div>
     </div>
   </section>
-  <section id="waiting" class="panel hidden"><div class="step">已完成全部关卡</div><h2>等待对手完成</h2><p class="muted">对手仍在作答。来点不妨碍操作的小恶作剧吧！</p><div id="waitingPlayers" class="players"></div><div class="mischief"><h3>猪猪捣蛋</h3><p>选择 10 种全屏动画，每场最多发送 10 次、间隔 2 秒；不会挡住按钮，也不会改变计时或分数。</p><div id="interferenceActions" class="actions"><button data-effect="pig">🐷 小猪路过</button><button data-effect="sparkle">✨ 星星闪闪</button><button data-effect="wink">😜 调皮眨眼</button><button data-effect="candy">🍬 糖果雨</button><button data-effect="flower">🌸 花瓣飘落</button><button data-effect="butterfly">🦋 蝴蝶飞舞</button><button data-effect="balloon">🎈 气球升空</button><button data-effect="heart">💖 爱心闪现</button><button data-effect="duck">🐥 小鸭出没</button><button data-effect="cloud">☁️ 云朵飘飘</button></div><small id="interferenceStatus"></small></div></section>
+  <section id="waiting" class="panel hidden"><div class="step">已完成全部关卡</div><h2>等待对手完成</h2><div id="waitingOffline" class="offlineNotice hidden"><span>对手已离线。你可以继续等待，或退出当前房间。</span><button type="button" data-leave>退出房间</button></div><p class="muted">对手仍在作答。来点不妨碍操作的小恶作剧吧！</p><div id="waitingPlayers" class="players"></div><div class="mischief"><h3>猪猪捣蛋</h3><p>选择 10 种全屏动画，每场最多发送 10 次、间隔 2 秒；不会挡住按钮，也不会改变计时或分数。</p><div id="interferenceActions" class="actions"><button data-effect="pig">🐷 小猪路过</button><button data-effect="sparkle">✨ 星星闪闪</button><button data-effect="wink">😜 调皮眨眼</button><button data-effect="candy">🍬 糖果雨</button><button data-effect="flower">🌸 花瓣飘落</button><button data-effect="butterfly">🦋 蝴蝶飞舞</button><button data-effect="balloon">🎈 气球升空</button><button data-effect="heart">💖 爱心闪现</button><button data-effect="duck">🐥 小鸭出没</button><button data-effect="cloud">☁️ 云朵飘飘</button></div><small id="interferenceStatus"></small></div></section>
   <section id="finish" class="panel hidden"><div class="step">对战结束</div><h2 id="winnerTitle">Winner</h2><div id="finalPlayers" class="players final"></div><p class="muted">先比得分；同分时总耗时更短者获胜。两项都相同则为平局。</p><button id="newBtn" class="primary wide">发起新对战</button></section>
 </main>
-<div id="result" class="overlay hidden"><div class="panel result"><div id="resultIcon" class="resultIcon"></div><h2 id="resultTitle"></h2><p id="resultText"></p><div class="actions"><button id="retryBtn" class="dark hidden">重新作答</button><button id="nextBtn" class="primary">下一关</button></div></div></div>
+<div id="result" class="overlay hidden"><div class="panel result"><div id="resultIcon" class="resultIcon"></div><h2 id="resultTitle"></h2><p id="resultText"></p><div class="actions"><button id="retryBtn" class="dark hidden">重新作答</button><button id="nextBtn" class="primary">下一关</button></div><div id="resultOffline" class="offlineNotice hidden"><span>对手已离线，你也可以退出当前房间。</span><button type="button" data-leave>退出房间</button></div></div></div>
 <div id="inviteGuide" class="overlay inviteGuide hidden" role="dialog" aria-modal="true" aria-labelledby="inviteGuideTitle"><div class="panel result"><h2 id="inviteGuideTitle">微信邀请朋友</h2><p>复制专属房间链接，然后打开微信聊天，选择朋友并粘贴发送。</p><input id="inviteGuideUrl" type="text" readonly aria-label="房间邀请链接"><p id="inviteGuideStatus" class="muted">也可以长按链接手动复制。</p><div class="actions"><button id="inviteGuideCopy" class="primary">复制链接</button><button id="inviteGuideClose">完成</button></div></div></div>
 <div id="interferenceLayer" class="interferenceLayer" aria-hidden="true"></div>
 <div id="toast" class="toast hidden" role="status"></div>

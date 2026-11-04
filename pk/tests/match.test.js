@@ -49,14 +49,14 @@ test('equal scores use shorter total time as the tie breaker', () => {
 test('two players pair, ready, race independently and see the winner', async () => {
   if (!app.server.listening) await once(app.server,'listening');
   const url=`ws://127.0.0.1:${app.server.address().port}/ws`;
-  const a=new Client(new WebSocket(url)), b=new Client(new WebSocket(url));
+  const a=new Client(new WebSocket(url)); let b=new Client(new WebSocket(url));
   try {
     await Promise.all([once(a.ws,'open'),once(b.ws,'open')]);
     a.send({type:'create',name:'Alice',avatar:1});
     const joined=await a.take(m=>m.type==='joined');
     await a.state();
     b.send({type:'join',room:joined.room,name:'Bob',avatar:12});
-    await b.take(m=>m.type==='joined');
+    const guestJoined=await b.take(m=>m.type==='joined');
     const lobby=await a.state(m=>m.players.length===2);
     assert.equal(lobby.players[1].name,'Bob');
     a.send({type:'ready',ready:true});
@@ -66,6 +66,8 @@ test('two players pair, ready, race independently and see the winner', async () 
     a.send({type:'start'});
     await a.state(m=>m.phase==='playing');
     const room=app.rooms.get(joined.room);
+    b.ws.terminate();
+    await a.state(m=>m.players[1].online===false);
     a.send({type:'interfere',effect:'pig'});
     await a.take(m=>m.type==='error'&&m.message.includes('先完成'));
     for(let level=1;level<=10;level++) {
@@ -82,6 +84,11 @@ test('two players pair, ready, race independently and see the winner', async () 
       a.send({type:'next'});
       await a.state(m=>m.players[0].level===level+1||m.players[0].done);
     }
+    assert.equal(room.players[0].done,true);
+    assert.equal(room.players[1].level,1);
+    b=new Client(new WebSocket(url));
+    await once(b.ws,'open');
+    b.send({type:'reconnect',room:joined.room,token:guestJoined.token});
     const waiting=await b.state(m=>m.players[0].done&&m.players[1].level===1);
     assert.equal(waiting.phase,'playing');
     const originalStart=room.players[1].startedAt;
@@ -122,6 +129,12 @@ test('two players pair, ready, race independently and see the winner', async () 
     replacement.send({type:'reconnect',room:joined.room,token:joined.token});
     await replacement.state(m=>m.phase==='finished'&&m.you===joined.token);
     assert.equal((await displaced)[0],4001);
+    replacement.send({type:'leave'});
+    await replacement.take(m=>m.type==='left');
+    await b.take(m=>m.type==='room_closed');
+    assert.equal(app.rooms.has(joined.room),false);
+    b.send({type:'reconnect',room:joined.room,token:guestJoined.token});
+    await b.take(m=>m.type==='error'&&m.message.includes('过期'));
     replacement.ws.terminate();
   } finally {
     a.ws.terminate(); b.ws.terminate();

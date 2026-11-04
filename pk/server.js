@@ -143,6 +143,17 @@ function handle(ws, msg) {
   }
   const room = rooms.get(ws.room), p = room?.players.find(x => x.id === ws.player);
   if (!p || p.ws !== ws) return error(ws, '请先进入房间');
+  if (msg.type === 'leave') {
+    rooms.delete(room.id);
+    for (const player of room.players) {
+      if (player.ws) {
+        player.ws.room = null;
+        player.ws.player = null;
+        send(player.ws, { type: player.id === p.id ? 'left' : 'room_closed' });
+      }
+    }
+    return;
+  }
   if (msg.type === 'interfere') {
     const other = room.players.find(x => x.id !== p.id);
     if (room.phase !== 'playing' || !p.done || !other || other.done) return error(ws, '只有先完成的玩家可向仍在作答的对手发送干扰');
