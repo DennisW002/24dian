@@ -6,10 +6,10 @@ const { WebSocketServer, WebSocket } = require('ws');
 
 const PORT = Number(process.env.PORT || 3000);
 const LIMIT = 300_000;
-const TOTAL = 5;
-const INTERFERENCE_LIMIT = 5;
-const INTERFERENCE_COOLDOWN = 12_000;
-const EFFECTS = new Set(['pig', 'sparkle', 'wink']);
+const TOTAL = 10;
+const INTERFERENCE_LIMIT = 10;
+const INTERFERENCE_COOLDOWN = 2_000;
+const EFFECTS = new Set(['pig', 'sparkle', 'wink', 'candy', 'flower', 'butterfly', 'balloon', 'heart', 'duck', 'cloud']);
 const rooms = new Map();
 const publicDir = path.join(__dirname, 'public');
 const ranked = require('./ranked.json');
@@ -61,7 +61,7 @@ function winnerId(players) {
 function snapshot(room, viewer) {
   const now = Date.now();
   const p = room.players.find(x => x.id === viewer);
-  return { type: 'state', room: room.id, phase: room.phase, host: room.host,
+  return { type: 'state', room: room.id, phase: room.phase, host: room.host, total: TOTAL,
     winner: room.phase === 'finished' ? winnerId(room.players) : null,
     you: viewer, players: room.players.map(x => playerView(x, now)),
     interference: { used: p.interferenceUsed, limit: INTERFERENCE_LIMIT, cooldownMs: Math.max(0, p.interferenceAt - now) },

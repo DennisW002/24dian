@@ -24,8 +24,8 @@ test('each match draws solvable puzzles from ascending difficulty bands', () => 
   const packs=Array.from({length:12},()=>app.choosePuzzles());
   assert.ok(new Set(packs.map(pack=>pack.map(p=>p.key).join(','))).size>1);
   for(const pack of packs) {
-    assert.deepEqual(pack.map(p=>p.tier),[1,2,3,4,5]);
-    assert.equal(new Set(pack.map(p=>p.key)).size,5);
+    assert.deepEqual(pack.map(p=>p.tier),[1,2,3,4,5,6,7,8,9,10]);
+    assert.equal(new Set(pack.map(p=>p.key)).size,10);
     for(const p of pack) assert.equal(app.calculate(solutionTokens(p.solution,p.n),p.n),true);
   }
 });
@@ -68,7 +68,7 @@ test('two players pair, ready, race independently and see the winner', async () 
     const room=app.rooms.get(joined.room);
     a.send({type:'interfere',effect:'pig'});
     await a.take(m=>m.type==='error'&&m.message.includes('先完成'));
-    for(let level=1;level<=5;level++) {
+    for(let level=1;level<=10;level++) {
       const puzzle=room.puzzles[level-1];
       if(level===1){
         const wrong=[{t:'n',i:0},{t:'o',v:'-'},{t:'n',i:1},{t:'o',v:'-'},{t:'n',i:2},{t:'o',v:'-'},{t:'n',i:3}];
@@ -89,12 +89,14 @@ test('two players pair, ready, race independently and see the winner', async () 
     const effect=await b.take(m=>m.type==='interference');
     assert.equal(effect.effect,'pig');
     await a.state(m=>m.interference.used===1);
+    assert.equal(room.players[0].interferenceAt - Date.now() <= 2000,true);
+    assert.equal(room.players[0].interferenceAt - Date.now() > 0,true);
     assert.equal(room.players[1].level,1);
     assert.equal(room.players[1].score,0);
     assert.equal(room.players[1].startedAt,originalStart);
     a.send({type:'interfere',effect:'sparkle'});
     await a.take(m=>m.type==='error'&&m.message.includes('稍等'));
-    room.players[0].interferenceUsed=5;
+    room.players[0].interferenceUsed=10;
     room.players[0].interferenceAt=0;
     a.send({type:'interfere',effect:'wink'});
     await a.take(m=>m.type==='error'&&m.message.includes('次数'));
@@ -104,14 +106,14 @@ test('two players pair, ready, race independently and see the winner', async () 
     assert.equal(timeout.result.solution,room.puzzles[0].solution);
     b.send({type:'next'});
     await b.state(m=>m.players[1].level===2);
-    for(let level=2;level<=5;level++) {
+    for(let level=2;level<=10;level++) {
       b.send({type:'skip'});
       await b.state(m=>m.result?.kind==='skip'&&m.players[1].level===level);
       b.send({type:'next'});
       await b.state(m=>m.players[1].level===level+1||m.phase==='finished');
     }
     const finished=await a.state(m=>m.phase==='finished');
-    assert.equal(finished.players[0].score,5);
+    assert.equal(finished.players[0].score,10);
     assert.equal(finished.players[1].score,0);
     assert.equal(finished.winner,finished.players[0].id);
     const replacement=new Client(new WebSocket(url));

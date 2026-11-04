@@ -30,12 +30,14 @@ test('full-screen effects use particles and invitation copies the room link', as
   const resume=vm.runInContext('resumeTarget()',context);
   assert.equal(resume.room,'abc123');
   assert.equal(resume.token,'host-token');
-  vm.runInContext("state={room:'abc123',phase:'playing',you:'p1',players:[{id:'p1',done:false}]};showInterference('pig');showInterference('sparkle')", context);
+  vm.runInContext("state={room:'abc123',phase:'playing',you:'p1',players:[{id:'p1',done:false}]};['pig','sparkle','wink','candy','flower','butterfly','balloon','heart','duck','cloud'].forEach(showInterference)", context);
   const scenes = document.getElementById('interferenceLayer').children;
-  assert.equal(scenes.length, 2);
+  assert.equal(scenes.length, 10);
   assert.equal(scenes[0].children.length, 14);
   assert.equal(scenes[0].children[0].children[0].src, '/avatars/1f437.svg');
   assert.equal(scenes[1].children.length, 32);
+  const html = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
+  assert.equal((html.match(/data-effect="/g)||[]).length, 10);
   await vm.runInContext('openInviteGuide()', context);
   assert.equal(copied[0], 'https://example.com/?room=abc123');
   assert.match(document.getElementById('inviteGuideStatus').textContent, /微信聊天中粘贴/);

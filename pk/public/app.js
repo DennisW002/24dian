@@ -33,21 +33,24 @@ function connect() {
 function showSections(which) { for(const id of ['entry','lobby','game','waiting','finish']) $(id).classList.toggle('hidden',id!==which); }
 function showInterference(effect) {
   if(interferenceMuted || state?.phase!=='playing' || state.players.find(p=>p.id===state.you)?.done) return;
-  if(!['pig','sparkle','wink'].includes(effect)) return;
+  const symbols={pig:null,sparkle:'⭐',wink:'😜',candy:'🍬',flower:'🌸',butterfly:'🦋',balloon:'🎈',heart:'💖',duck:'🐥',cloud:'☁️'};
+  if(!(effect in symbols)) return;
+  const falling=['sparkle','candy','flower'].includes(effect);
+  const floating=['butterfly','balloon','cloud'].includes(effect);
   const scene=document.createElement('div');
   scene.className=`interferenceScene scene-${effect}`;
-  const count=effect==='sparkle'?32:14;
+  const count=falling?32:14;
   for(let i=0;i<count;i++) {
     const particle=document.createElement('span');
     particle.className='particle';
     particle.style.left=`${4+Math.random()*92}%`;
-    particle.style.top=effect==='sparkle'?'-12%':`${8+Math.random()*82}%`;
+    particle.style.top=falling?'-12%':floating?'95%':`${8+Math.random()*82}%`;
     particle.style.setProperty('--still-top',`${8+Math.random()*82}%`);
     particle.style.setProperty('--delay',`${Math.random()*0.65}s`);
     particle.style.setProperty('--duration',`${1.7+Math.random()*0.7}s`);
     particle.style.setProperty('--size',`${effect==='pig'?38+Math.random()*42:25+Math.random()*35}px`);
     if(effect==='pig') { const img=document.createElement('img'); img.src='/avatars/1f437.svg'; img.alt=''; particle.append(img); }
-    else particle.textContent=effect==='sparkle'?'⭐':'😜';
+    else particle.textContent=symbols[effect];
     scene.append(particle);
   }
   $('interferenceLayer').append(scene);
@@ -78,7 +81,7 @@ function renderInterferenceControls() {
   $('interferenceStatus').textContent=exhausted?'本场次数已用完':remaining>0?`冷却中，还需 ${Math.ceil(remaining/1000)} 秒`:`剩余 ${state.interference.limit-state.interference.used} 次${other?.online?'':' · 对手离线'}`;
 }
 function playerCard(p, me, phase) {
-  const status=phase==='lobby'?(p.ready?'已准备':'未准备'):p.done?'已完成':`第 ${p.level} / 5 关`;
+  const status=phase==='lobby'?(p.ready?'已准备':'未准备'):p.done?'已完成':`第 ${p.level} / ${state.total} 关`;
   return `<div class="player">${avatarHtml(p.avatar)}<div><strong>${esc(p.name)}${p.id===me?'（你）':''}</strong><small>${status}${p.online?'':' · 离线'}</small></div><span class="badge">${p.score} 分</span></div>`;
 }
 function render() {
@@ -96,7 +99,7 @@ function render() {
     $('interferenceLayer').replaceChildren();
     const winner=state.players.find(p=>p.id===state.winner);
     $('winnerTitle').textContent=winner?`${winner.name} 是 Winner！`:'平局！';
-    $('finalPlayers').innerHTML=state.players.map(p=>`<div class="player">${avatarHtml(p.avatar)}<div><strong>${esc(p.name)}</strong><small>得分 ${p.score} / 5<br>总耗时 ${formatTime(p.elapsedMs)}</small></div></div>`).join('');
+    $('finalPlayers').innerHTML=state.players.map(p=>`<div class="player">${avatarHtml(p.avatar)}<div><strong>${esc(p.name)}</strong><small>得分 ${p.score} / ${state.total}<br>总耗时 ${formatTime(p.elapsedMs)}</small></div></div>`).join('');
   } else if(me.done) {
     showSections('waiting'); $('result').classList.add('hidden');
     $('waitingPlayers').innerHTML=state.players.map(p=>playerCard(p,state.you,'playing')).join('');
@@ -125,7 +128,7 @@ function showResult(kind, detail) {
   const [icon,title,message]=data[kind]||data.wrong;
   $('resultIcon').textContent=icon; $('resultTitle').textContent=title; $('resultText').textContent=message;
   $('retryBtn').classList.toggle('hidden',kind!=='wrong');
-  $('nextBtn').textContent=state?.players.find(p=>p.id===state.you)?.level===5?'完成对战':'下一关';
+  $('nextBtn').textContent=state?.players.find(p=>p.id===state.you)?.level===state.total?'完成对战':'下一关';
   $('result').classList.remove('hidden');
 }
 function addNum(i) { if(!state||state.phase!=='playing'||localWrong||state.result) return; if(tokens.some(t=>t.t==='n'&&t.i===i)) return; const last=tokens.at(-1); if(last&&(last.t==='n'||last.v===')')) return toast('数字前面需要运算符'); tokens.push({t:'n',i}); renderInput(); }
